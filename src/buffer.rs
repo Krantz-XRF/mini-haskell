@@ -244,6 +244,7 @@ mod tests {
     }
 
     use super::RingBuffer;
+    use crate::utils::LIPSUM;
 
     #[test]
     fn test_basics() {
@@ -257,20 +258,6 @@ mod tests {
         assert_eq!(buf.pop(), Some('l'));
         assert_eq_str!(buf.iter(), "lo");
     }
-
-    const LIPSUM: &'static str =
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum facilisis turpis ex, \
-        eu dignissim purus varius non. Integer elit enim, rhoncus a lacinia sed, fermentum eget \
-        mauris. Suspendisse bibendum pellentesque justo, et fermentum tortor tempor et. Sed \
-        interdum, ligula quis sagittis tristique, mi magna malesuada felis, vitae gravida ligula \
-        libero ac tellus. Morbi imperdiet scelerisque leo sit amet consequat. Pellentesque tellus \
-        lectus, sagittis in gravida at, laoreet ut justo. Vivamus posuere arcu diam, eu \
-        pellentesque ante maximus pulvinar. Phasellus id rhoncus enim, ut iaculis justo. Fusce \
-        interdum dolor vel purus pulvinar aliquam. Curabitur nec nulla magna. Etiam sagittis sem \
-        nibh, eget auctor nunc molestie in. Vivamus pretium augue in blandit porta. Integer \
-        tempus fermentum enim, non ultrices nulla tempor quis. Sed vel tincidunt enim, at \
-        vulputate risus. Nulla facilisi. Ut pellentesque pharetra urna ac finibus. Aenean ac \
-        dignissim orci. Praesent vulputate massa a vulputate facilisis. Phasellus sed.";
 
     #[test]
     fn test_growth() {
