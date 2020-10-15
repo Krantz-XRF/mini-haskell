@@ -67,8 +67,15 @@ pub fn inc(x: &mut usize) -> usize {
 /// let mut x = 42;
 /// let r = &mut x;
 /// let r2 = unsafe { dup_mut(&r) };
+/// assert_eq!(r as *mut _, r2 as *mut _);
 /// ```
 #[inline]
 pub unsafe fn dup_mut<'a, T>(r: &&'a mut T) -> &'a mut T {
     &mut *(*r as *const T as *mut T)
 }
+
+/// If greater, return the difference, else `None` is returned.
+pub fn greater(x: usize, y: usize) -> Option<usize> {
+    if x > y { Some(x - y) } else { None }
+}
+

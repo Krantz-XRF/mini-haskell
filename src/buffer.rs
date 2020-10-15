@@ -58,11 +58,15 @@ pub struct IterMut<'a> {
     boundary: usize,
 }
 
+macro_rules! unsafe_dup_mut {
+    ($e: expr) => { unsafe { $crate::utils::dup_mut(& $e) } }
+}
+
 impl<'a> Iterator for IterMut<'a> {
     type Item = &'a mut char;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let buffer = unsafe { dup_mut(&self.buffer) };
+        let buffer = unsafe_dup_mut!(self.buffer);
         if self.current_index < self.boundary {
             Some(buffer.at_mut(inc(&mut self.current_index)))
         } else {
@@ -94,6 +98,11 @@ impl RingBuffer {
     /// Whole buffer size.
     pub fn capacity(&self) -> usize {
         self.data.len()
+    }
+
+    /// Set a new anchor, and return the old one.
+    pub fn set_anchor(&mut self, anchor: Option<usize>) -> Option<usize> {
+        std::mem::replace(&mut self.anchor, anchor)
     }
 
     fn guard(&self) -> usize {
@@ -175,12 +184,38 @@ impl RingBuffer {
         n
     }
 
+    /// Pop (possibly) 1 character from the buffer.
+    pub fn pop(&mut self) -> Option<char> {
+        let res = self.peek();
+        self.current += 1;
+        res
+    }
+
     /// Pop no more than `n` characters from the buffer.
     pub fn pop_n(&mut self, n: usize) -> Iter {
-        let n = std::cmp::min(n, self.front - self.current);
         let current_index = self.current;
-        self.current += n;
+        self.current = std::cmp::min(self.current + n, self.front);
         Iter { current_index, boundary: self.current, buffer: self }
+    }
+
+    /// Peek (possibly) 1 character from the buffer.
+    pub fn peek(&mut self) -> Option<char> {
+        if self.current < self.front {
+            Some(self.at(self.current))
+        } else {
+            None
+        }
+    }
+
+    /// Peek no more than `n` characters from the buffer.
+    pub fn peek_n(&mut self, n: usize) -> Iter {
+        let boundary = std::cmp::min(self.current + n, self.front);
+        Iter { current_index: self.current, boundary, buffer: self }
+    }
+
+    /// The number of remaining characters to read.
+    pub fn remaining_count(&mut self) -> usize {
+        self.front - self.current
     }
 
     /// Immutable traversal of ring buffer.
@@ -219,6 +254,8 @@ mod tests {
         assert_eq_str!(it, ", world!");
         assert_eq_str!(buf.pop_n(2), "He");
         assert_eq_str!(buf.iter(), "llo");
+        assert_eq!(buf.pop(), Some('l'));
+        assert_eq_str!(buf.iter(), "lo");
     }
 
     const LIPSUM: &'static str =
