@@ -20,5 +20,9 @@
 
 #![warn(missing_docs)]
 
+pub mod buffer;
+
+pub mod utils;
+
 #[cfg(test)]
 mod tests {}
