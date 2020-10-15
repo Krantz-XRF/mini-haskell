@@ -93,3 +93,21 @@ pub const LIPSUM: &'static str =
     tempor quis. Sed vel tincidunt enim, at vulputate risus. Nulla facilisi. Ut pellentesque \
     pharetra urna ac finibus. Aenean ac dignissim orci. Praesent vulputate massa a vulputate \
     facilisis. Phasellus sed.";
+
+#[cfg(test)]
+macro_rules! assert_eq_iter {
+    ($x: expr, $y: expr) => {
+        assert!($x.eq($y));
+    }
+}
+
+#[cfg(test)]
+macro_rules! assert_eq_str {
+    ($x: expr, $y: expr) => {
+        assert_eq_iter!($x, $y.chars());
+    }
+}
+
+macro_rules! unsafe_dup_mut {
+    ($e: expr) => { unsafe { $crate::utils::dup_mut(& $e) } }
+}

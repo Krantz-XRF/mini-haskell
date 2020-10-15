@@ -20,9 +20,10 @@
 
 #![warn(missing_docs)]
 
-pub mod buffer;
-
+#[macro_use]
 pub mod utils;
+
+pub mod buffer;
 
 #[cfg(test)]
 mod tests {}

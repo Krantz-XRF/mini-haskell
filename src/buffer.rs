@@ -58,10 +58,6 @@ pub struct IterMut<'a> {
     boundary: usize,
 }
 
-macro_rules! unsafe_dup_mut {
-    ($e: expr) => { unsafe { $crate::utils::dup_mut(& $e) } }
-}
-
 impl<'a> Iterator for IterMut<'a> {
     type Item = &'a mut char;
 
@@ -231,18 +227,6 @@ impl RingBuffer {
 
 #[cfg(test)]
 mod tests {
-    macro_rules! assert_eq_iter {
-        ($x: expr, $y: expr) => {
-            assert!($x.eq($y));
-        }
-    }
-
-    macro_rules! assert_eq_str {
-        ($x: expr, $y: expr) => {
-            assert_eq_iter!($x, $y.chars());
-        }
-    }
-
     use super::RingBuffer;
     use crate::utils::LIPSUM;
 
