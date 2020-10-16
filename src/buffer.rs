@@ -101,6 +101,16 @@ impl RingBuffer {
         std::mem::replace(&mut self.anchor, anchor)
     }
 
+    /// The current index, yet to be read from the buffer.
+    pub fn current_index(&self) -> usize {
+        self.current
+    }
+
+    /// Revert `current` to `anchor`. Panics if no anchor is set.
+    pub fn revert(&mut self) {
+        self.current = self.anchor.expect("cannot revert without a valid anchor.");
+    }
+
     fn guard(&self) -> usize {
         std::cmp::min(self.current, self.anchor.unwrap_or(usize::MAX))
     }
