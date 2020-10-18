@@ -60,20 +60,6 @@ pub fn inc(x: &mut usize) -> usize {
     res
 }
 
-/// Duplicate a mutable reference.
-///
-/// ```
-/// # use mini_haskell::utils::dup_mut;
-/// let mut x = 42;
-/// let r = &mut x;
-/// let r2 = unsafe { dup_mut(&r) };
-/// assert_eq!(r as *mut _, r2 as *mut _);
-/// ```
-#[inline]
-pub unsafe fn dup_mut<'a, T>(r: &&'a mut T) -> &'a mut T {
-    &mut *(*r as *const T as *mut T)
-}
-
 /// If greater, return the difference, else `None` is returned.
 pub fn greater(x: usize, y: usize) -> Option<usize> {
     if x > y { Some(x - y) } else { None }
@@ -106,8 +92,4 @@ macro_rules! assert_eq_str {
     ($x: expr, $y: expr) => {
         assert_eq_iter!($x, $y.chars());
     }
-}
-
-macro_rules! unsafe_dup_mut {
-    ($e: expr) => { unsafe { $crate::utils::dup_mut(& $e) } }
 }

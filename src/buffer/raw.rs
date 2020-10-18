@@ -18,6 +18,7 @@
 
 //! raw buffers, the chosen implementation is `RingBuffer`.
 
+use std::marker;
 use crate::utils::*;
 
 /// Ring buffer (growable).
@@ -53,18 +54,20 @@ impl<'a> Iterator for Iter<'a> {
 
 /// Mutable iterator for traversing the ring buffer.
 pub struct IterMut<'a> {
-    buffer: &'a mut RingBuffer,
+    buffer: *mut char,
+    length: usize,
     current_index: usize,
     boundary: usize,
+    phantom: marker::PhantomData<&'a mut ()>,
 }
 
 impl<'a> Iterator for IterMut<'a> {
     type Item = &'a mut char;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let buffer = unsafe_dup_mut!(self.buffer);
+        let idx = (inc(&mut self.current_index) % self.length) as isize;
         if self.current_index < self.boundary {
-            Some(buffer.at_mut(inc(&mut self.current_index)))
+            Some(unsafe { &mut *self.buffer.offset(idx) })
         } else {
             None
         }
@@ -231,7 +234,13 @@ impl RingBuffer {
 
     /// Mutable traversal of ring buffer.
     pub fn iter_mut(&mut self) -> IterMut {
-        IterMut { current_index: self.current, boundary: self.front, buffer: self }
+        IterMut {
+            current_index: self.current,
+            boundary: self.front,
+            buffer: self.data.as_mut_ptr(),
+            length: self.data.len(),
+            phantom: marker::PhantomData,
+        }
     }
 }
 
