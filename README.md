@@ -6,7 +6,20 @@
 [![docs](https://img.shields.io/badge/Doc-GitHub%20Pages-brightgreen)](https://krantz-xrf.github.io/mini-haskell/)
 ![version](https://img.shields.io/badge/WIP-0.1-yellow)
 
-A toy-haskell implementation for Haskell written in Rust.
+A toy implementation for Haskell written in Rust.
+
+## Current Status
+
+Still work in progress (very early stage):
+
+- [ ] Scanner
+  - [x] Buffer
+  - [ ] Tokenizer
+  - [ ] Layout
+- [ ] Parser
+  - [ ] AST
+- [ ] Interpreter Backend
+- [ ] Compiler Backend
 
 ## License
 
