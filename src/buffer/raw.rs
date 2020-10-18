@@ -133,7 +133,7 @@ impl RingBuffer {
         let count = self.front - self.guard();
         // maximum characters after reserve, rounded.
         let sz = round_to(n + count, Self::MINIMUM_BUFFER_GROWTH);
-        if self.data.len() >= sz { return (); }
+        if self.data.len() >= sz { return; }
         // allocate the new buffer.
         let buffer = std::mem::replace(&mut self.data, vec!['\0'; sz]);
         // copy all the data to the new buffer.
@@ -146,7 +146,7 @@ impl RingBuffer {
         //     both are not crossing the border.
         let len = std::cmp::min(count, len_min);
         self.data[start..start + len].copy_from_slice(&buffer[orig_start..orig_start + len]);
-        if len == count { return (); }
+        if len == count { return; }
         // (2) body: [.., start + len ~ start + len2, ..]
         //     only one is crossing the border.
         let len2 = std::cmp::min(count, len_max);
@@ -155,7 +155,7 @@ impl RingBuffer {
         } else {
             self.data[0..len2 - len].copy_from_slice(&buffer[orig_start + len..orig_start + len2]);
         }
-        if len2 == count { return (); }
+        if len2 == count { return; }
         // (3) tail: [.., start + len2 ~ end, ..]
         //     both are crossing the border.
         let orig_tail = (self.guard() + len2) % orig_sz;
@@ -166,6 +166,11 @@ impl RingBuffer {
     }
 
     /// Push 1 character into the buffer, without checking the bounds or growing the buffer.
+    ///
+    /// ## Safety
+    ///
+    /// This function does not reserve enough space before pushing into the buffer. Always reserve
+    /// enough space (using `reserve_more`) before calling this function.
     pub unsafe fn push_unchecked(&mut self, x: char) {
         *self.at_mut(self.front) = x;
         self.front += 1
@@ -241,6 +246,12 @@ impl RingBuffer {
             length: self.data.len(),
             phantom: marker::PhantomData,
         }
+    }
+}
+
+impl Default for RingBuffer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

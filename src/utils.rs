@@ -66,7 +66,7 @@ pub fn greater(x: usize, y: usize) -> Option<usize> {
 }
 
 /// Lorem ipsum.
-pub const LIPSUM: &'static str =
+pub const LIPSUM: &str =
     "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum facilisis turpis ex, eu \
     dignissim purus varius non. Integer elit enim, rhoncus a lacinia sed, fermentum eget mauris. \
     Suspendisse bibendum pellentesque justo, et fermentum tortor tempor et. Sed interdum, ligula \
