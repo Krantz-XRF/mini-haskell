@@ -18,6 +18,15 @@
 
 //! ring buffer for characters.
 
+macro_rules! impl_anchor {
+    () => {
+        /// Set an anchor at the current reading position.
+        fn anchor(&mut self) -> $crate::buffer::anchor::AnchorBuffer {
+            $crate::buffer::anchor::AnchorBuffer::new(self)
+        }
+    }
+}
+
 pub mod raw;
 pub mod normal;
 pub mod anchor;
@@ -32,10 +41,14 @@ pub trait Buffer {
     fn next(&mut self) -> Option<char>;
     /// Take no more than `n` characters and consume them.
     fn next_n(&mut self, n: usize) -> raw::Iter;
-}
-
-trait SetAnchor: Buffer {
-    fn set_anchor(&mut self, anchor: Option<usize>) -> Option<usize>;
-    fn current_index(&mut self) -> usize;
+    /// Revert the buffer to its anchor.
+    /// Panics if no anchor is present.
     fn revert(&mut self);
+    /// Set an anchor at the current reading position.
+    fn anchor(&mut self) -> anchor::AnchorBuffer;
+
+    #[doc(hidden)]
+    fn set_anchor(&mut self, anchor: Option<usize>) -> Option<usize>;
+    #[doc(hidden)]
+    fn current_index(&mut self) -> usize;
 }

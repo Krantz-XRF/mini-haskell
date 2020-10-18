@@ -19,9 +19,10 @@
 //! lexical scanner for mini-haskell
 
 use crate::buffer;
+use crate::buffer::Buffer;
 
 /// Source location.
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Location {
     /// line number, starting from 1.
     pub line: usize,
@@ -50,5 +51,14 @@ impl<'a> Scanner<'a> {
     /// Create a new scanner from the back buffer.
     pub fn new(buffer: &'a mut impl buffer::Buffer) -> Self {
         Scanner { buffer, location: Location::new() }
+    }
+
+    /// Set an anchor for possible revert in future.
+    pub fn anchor<T>(&mut self, f: impl FnOnce(&mut Scanner) -> Option<T>) -> Option<T> {
+        let mut anchored = self.buffer.anchor();
+        let mut scanner = Scanner { location: self.location, buffer: &mut anchored };
+        let res = f(&mut scanner);
+        if res.is_none() { anchored.revert() }
+        res
     }
 }

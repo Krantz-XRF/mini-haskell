@@ -19,7 +19,7 @@
 //! normal buffers, basically a raw buffer with an associated input iterator.
 
 use crate::utils::*;
-use super::{raw, Buffer, SetAnchor};
+use super::{raw, Buffer};
 
 /// Buffer tied with an input iterator.
 pub struct NormalBuffer<S: Iterator<Item=char>> {
@@ -64,9 +64,7 @@ impl<S: Iterator<Item=char>> Buffer for NormalBuffer<S> {
         self.read_n(n);
         self.buffer.pop_n(n)
     }
-}
 
-impl<S: Iterator<Item=char>> SetAnchor for NormalBuffer<S> {
     fn set_anchor(&mut self, anchor: Option<usize>) -> Option<usize> {
         self.buffer.set_anchor(anchor)
     }
@@ -78,6 +76,8 @@ impl<S: Iterator<Item=char>> SetAnchor for NormalBuffer<S> {
     fn revert(&mut self) {
         self.buffer.revert()
     }
+
+    impl_anchor!();
 }
 
 #[cfg(test)]

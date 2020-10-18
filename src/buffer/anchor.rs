@@ -18,25 +18,20 @@
 
 //! anchor buffers, i.e. normal buffers with anchors.
 
-use super::{raw, normal, Buffer, SetAnchor};
+use super::{raw, Buffer};
 
 /// A buffer with a custom anchor.
 /// - When dropped, reset the anchor.
 /// - When `revert` is called, reset `current` to the anchor.
 pub struct AnchorBuffer<'a> {
-    buffer: &'a mut dyn SetAnchor,
+    buffer: &'a mut dyn Buffer,
     anchor: Option<usize>,
 }
 
 impl<'a> AnchorBuffer<'a> {
-    fn new(buffer: &'a mut impl SetAnchor) -> Self {
+    pub(super) fn new(buffer: &'a mut dyn Buffer) -> Self {
         let idx = buffer.current_index();
         AnchorBuffer { anchor: buffer.set_anchor(Some(idx)), buffer }
-    }
-
-    /// Undo all the read after the anchor was set.
-    pub fn revert(&mut self) {
-        self.buffer.revert();
     }
 }
 
@@ -62,9 +57,7 @@ impl<'a> Buffer for AnchorBuffer<'a> {
     fn next_n(&mut self, n: usize) -> raw::Iter {
         self.buffer.next_n(n)
     }
-}
 
-impl<'a> SetAnchor for AnchorBuffer<'a> {
     fn set_anchor(&mut self, anchor: Option<usize>) -> Option<usize> {
         self.buffer.set_anchor(anchor)
     }
@@ -76,17 +69,32 @@ impl<'a> SetAnchor for AnchorBuffer<'a> {
     fn revert(&mut self) {
         self.buffer.revert()
     }
+
+    impl_anchor!();
 }
 
-macro_rules! impl_anchor {
-    () => {
-        /// Set an anchor at the current reading position.
-        pub fn anchor(&mut self) -> AnchorBuffer {
-            AnchorBuffer::new(self)
+#[cfg(test)]
+mod tests {
+    use crate::utils::LIPSUM;
+    use crate::buffer::normal::NormalBuffer;
+    use crate::buffer::{Buffer};
+
+    #[test]
+    fn test_basics() {
+        let mut buffer = NormalBuffer::new(LIPSUM.chars());
+        assert_eq_str!(buffer.next_n(42), LIPSUM[..42]);
+        /* anchored here! */ {
+            let mut buffer = buffer.anchor();
+            assert_eq_str!(buffer.next_n(304), LIPSUM[42..42 + 304]);
+            // buffer not reverted
         }
+        assert_eq!(buffer.current_index(), 42 + 304);
+        /* anchored here! */ {
+            let mut buffer = buffer.anchor();
+            assert_eq_str!(buffer.next_n(211), LIPSUM[42 + 304..42 + 304 + 211]);
+            // buffer reverted
+            buffer.revert();
+        }
+        assert_eq!(buffer.current_index(), 42 + 304);
     }
 }
-
-impl<S: Iterator<Item=char>> normal::NormalBuffer<S> { impl_anchor!(); }
-
-impl<'a> AnchorBuffer<'a> { impl_anchor!(); }
