@@ -18,7 +18,7 @@
 
 //! ring buffer for characters.
 
-macro_rules! impl_anchor {
+macro_rules! impl_buffer_common {
     () => {
         /// Set an anchor at the current reading position.
         fn anchor(&mut self) -> $crate::buffer::anchor::AnchorBuffer {
@@ -46,6 +46,19 @@ pub trait Buffer {
     fn revert(&mut self);
     /// Set an anchor at the current reading position.
     fn anchor(&mut self) -> anchor::AnchorBuffer;
+
+    /// Peek many characters until the predicate fails.
+    fn span(&mut self, f: &mut dyn FnMut(char) -> bool) -> Option<(usize, raw::Iter)> {
+        let mut buf = self.anchor();
+        let mut n = 0;
+        while let Some(x) = buf.next() {
+            if !f(x) { break; }
+            n += 1;
+        }
+        buf.revert();
+        drop(buf);
+        Some((n, self.next_n(n)))
+    }
 
     #[doc(hidden)]
     fn set_anchor(&mut self, anchor: Option<usize>) -> Option<usize>;

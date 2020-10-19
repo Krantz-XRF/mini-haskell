@@ -70,7 +70,7 @@ impl<'a> Buffer for AnchorBuffer<'a> {
         self.buffer.revert()
     }
 
-    impl_anchor!();
+    impl_buffer_common!();
 }
 
 #[cfg(test)]

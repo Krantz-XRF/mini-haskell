@@ -65,6 +65,10 @@ impl<S: Iterator<Item=char>> Buffer for NormalBuffer<S> {
         self.buffer.pop_n(n)
     }
 
+    fn revert(&mut self) {
+        self.buffer.revert()
+    }
+
     fn set_anchor(&mut self, anchor: Option<usize>) -> Option<usize> {
         self.buffer.set_anchor(anchor)
     }
@@ -73,11 +77,7 @@ impl<S: Iterator<Item=char>> Buffer for NormalBuffer<S> {
         self.buffer.current_index()
     }
 
-    fn revert(&mut self) {
-        self.buffer.revert()
-    }
-
-    impl_anchor!();
+    impl_buffer_common!();
 }
 
 #[cfg(test)]

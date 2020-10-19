@@ -201,7 +201,7 @@ impl RingBuffer {
     /// Pop (possibly) 1 character from the buffer.
     pub fn pop(&mut self) -> Option<char> {
         let res = self.peek();
-        self.current += 1;
+        if let Some(_) = res { self.current += 1 }
         res
     }
 
