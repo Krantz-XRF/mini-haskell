@@ -23,6 +23,9 @@
 #[macro_use]
 pub mod utils;
 
+#[macro_use]
+pub mod char;
+
 pub mod buffer;
 pub mod scanner;
 
