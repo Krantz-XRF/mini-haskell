@@ -153,11 +153,12 @@ macro_rules! check_once_many_some {
         let $x = $x;
     };
     ($lexer: expr, many, $x: ident, $cond: expr) => {
-        let (_, $x) = $crate::buffer::span($lexer, |$x| { $cond })?;
+        let $x = $crate::buffer::span($lexer, |$x| { $cond })?;
     };
     ($lexer: expr, some, $x: ident, $cond: expr) => {
-        let (_n, $x) = $crate::buffer::span($lexer, |$x| { $cond })?;
-        if _n == 0 { return None; }
+        let $x = $crate::buffer::span($lexer, |$x| { $cond })?;
+        if $x.len() == 0 { return None; }
+        let $x = $x;
     };
 }
 
@@ -192,13 +193,13 @@ macro_rules! check_all {
 #[cfg(test)]
 mod tests {
     use super::{Unicode, Ascii, CharPredicate};
-    use crate::buffer::Buffer;
+    use crate::buffer::Stream;
 
     #[test]
     fn test_syntax() {
         #[allow(dead_code)]
         #[allow(unused_variables)]
-        fn parse(scanner: &mut impl Buffer) -> Option<()> {
+        fn parse(scanner: &mut impl Stream) -> Option<()> {
             analyse!(scanner);
             analyse!(scanner, x: Ascii::Any);
             analyse!(scanner, x+: Unicode::Alpha, '\n');

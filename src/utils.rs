@@ -26,6 +26,7 @@
 /// assert_eq!(round_to(1120, 1024), 2048);
 /// assert_eq!(round_to(2048, 32), 2048);
 /// ```
+#[inline]
 pub const fn round_to(x: usize, n: usize) -> usize {
     (x + n - 1) / n * n
 }
@@ -54,6 +55,7 @@ pub fn min_max<T: Ord>(x: T, y: T) -> (bool, T, T) {
 /// assert_eq!(inc(&mut x), 42);
 /// assert_eq!(x, 43);
 /// ```
+#[inline]
 pub fn inc(x: &mut usize) -> usize {
     let res = *x;
     *x += 1;
@@ -61,6 +63,7 @@ pub fn inc(x: &mut usize) -> usize {
 }
 
 /// If greater, return the difference, else `None` is returned.
+#[inline]
 pub fn greater(x: usize, y: usize) -> Option<usize> {
     if x > y { Some(x - y) } else { None }
 }

@@ -18,8 +18,8 @@
 
 //! raw buffers, the chosen implementation is `RingBuffer`.
 
-use std::marker;
 use crate::utils::*;
+use std::marker;
 
 /// Ring buffer (growable).
 pub struct RingBuffer {
@@ -81,7 +81,9 @@ impl RingBuffer {
     pub const MINIMUM_BUFFER_GROWTH: usize = 512;
 
     /// Create a new `RingBuffer` with `DEFAULT_BUFFER_SIZE`.
-    pub fn new() -> Self { Self::new_sized(Self::DEFAULT_BUFFER_SIZE) }
+    pub fn new() -> Self {
+        Self::new_sized(Self::DEFAULT_BUFFER_SIZE)
+    }
 
     /// Create a new `RingBuffer` with specified size.
     pub fn new_sized(n: usize) -> Self {
@@ -133,20 +135,23 @@ impl RingBuffer {
         let count = self.front - self.guard();
         // maximum characters after reserve, rounded.
         let sz = round_to(n + count, Self::MINIMUM_BUFFER_GROWTH);
-        if self.data.len() >= sz { return; }
+        if self.data.len() >= sz {
+            return;
+        }
         // allocate the new buffer.
         let buffer = std::mem::replace(&mut self.data, vec!['\0'; sz]);
         // copy all the data to the new buffer.
         let orig_sz = buffer.len();
         let orig_start = self.guard() % orig_sz;
         let start = self.guard() % sz;
-        let (orig_shorter, len_min, len_max)
-            = min_max(orig_sz - orig_start, sz - start);
+        let (orig_shorter, len_min, len_max) = min_max(orig_sz - orig_start, sz - start);
         // (1) head: [.., start ~ start + len, ..]
         //     both are not crossing the border.
         let len = std::cmp::min(count, len_min);
         self.data[start..start + len].copy_from_slice(&buffer[orig_start..orig_start + len]);
-        if len == count { return; }
+        if len == count {
+            return;
+        }
         // (2) body: [.., start + len ~ start + len2, ..]
         //     only one is crossing the border.
         let len2 = std::cmp::min(count, len_max);
@@ -155,7 +160,9 @@ impl RingBuffer {
         } else {
             self.data[0..len2 - len].copy_from_slice(&buffer[orig_start + len..orig_start + len2]);
         }
-        if len2 == count { return; }
+        if len2 == count {
+            return;
+        }
         // (3) tail: [.., start + len2 ~ end, ..]
         //     both are crossing the border.
         let orig_tail = (self.guard() + len2) % orig_sz;
@@ -186,7 +193,7 @@ impl RingBuffer {
     /// successfully pushed to the buffer.
     ///
     /// Invariant: `buf.push_n(n, it) < n` if and only if `it` is exhausted.
-    pub fn push_n(&mut self, n: usize, it: &mut impl Iterator<Item=char>) -> usize {
+    pub fn push_n(&mut self, n: usize, it: &mut impl Iterator<Item = char>) -> usize {
         self.reserve_more(n);
         for i in 0..n {
             if let Some(x) = it.next() {
@@ -201,7 +208,9 @@ impl RingBuffer {
     /// Pop (possibly) 1 character from the buffer.
     pub fn pop(&mut self) -> Option<char> {
         let res = self.peek();
-        if res.is_some() { self.current += 1 }
+        if res.is_some() {
+            self.current += 1
+        }
         res
     }
 
@@ -209,7 +218,11 @@ impl RingBuffer {
     pub fn pop_n(&mut self, n: usize) -> Iter {
         let current_index = self.current;
         self.current = std::cmp::min(self.current + n, self.front);
-        Iter { current_index, boundary: self.current, buffer: self }
+        Iter {
+            current_index,
+            boundary: self.current,
+            buffer: self,
+        }
     }
 
     /// Peek (possibly) 1 character from the buffer.
@@ -224,7 +237,11 @@ impl RingBuffer {
     /// Peek no more than `n` characters from the buffer.
     pub fn peek_n(&mut self, n: usize) -> Iter {
         let boundary = std::cmp::min(self.current + n, self.front);
-        Iter { current_index: self.current, boundary, buffer: self }
+        Iter {
+            current_index: self.current,
+            boundary,
+            buffer: self,
+        }
     }
 
     /// The number of remaining characters to read.
@@ -234,7 +251,11 @@ impl RingBuffer {
 
     /// Immutable traversal of ring buffer.
     pub fn iter(&self) -> Iter {
-        Iter { current_index: self.current, boundary: self.front, buffer: self }
+        Iter {
+            current_index: self.current,
+            boundary: self.front,
+            buffer: self,
+        }
     }
 
     /// Mutable traversal of ring buffer.

@@ -58,14 +58,11 @@ pub trait Buffer: Stream {
 }
 
 /// Peek many characters until the predicate fails.
-pub fn span(this: &mut impl Buffer, mut f: impl FnMut(char) -> bool) -> Option<(usize, raw::Iter)> {
-    let mut buf = this.anchor();
-    let mut n = 0;
-    while let Some(x) = buf.next() {
+pub fn span(this: &mut impl Stream, mut f: impl FnMut(char) -> bool) -> Option<Vec<char>> {
+    let mut buf = Vec::new();
+    while let Some(x) = this.next() {
         if !f(x) { break; }
-        n += 1;
+        buf.push(x);
     }
-    buf.revert();
-    drop(buf);
-    Some((n, this.next_n(n)))
+    Some(buf)
 }
