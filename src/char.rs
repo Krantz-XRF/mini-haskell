@@ -153,10 +153,10 @@ macro_rules! check_once_many_some {
         let $x = $x;
     };
     ($lexer: expr, many, $x: ident, $cond: expr) => {
-        let (_, $x) = $lexer.span(&mut |$x| { $cond })?;
+        let (_, $x) = $crate::buffer::span($lexer, |$x| { $cond })?;
     };
     ($lexer: expr, some, $x: ident, $cond: expr) => {
-        let (_n, $x) = $lexer.span(&mut |$x| { $cond })?;
+        let (_n, $x) = $crate::buffer::span($lexer, |$x| { $cond })?;
         if _n == 0 { return None; }
     };
 }

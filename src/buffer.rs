@@ -47,21 +47,21 @@ pub trait Buffer {
     /// Set an anchor at the current reading position.
     fn anchor(&mut self) -> anchor::AnchorBuffer;
 
-    /// Peek many characters until the predicate fails.
-    fn span(&mut self, f: &mut dyn FnMut(char) -> bool) -> Option<(usize, raw::Iter)> {
-        let mut buf = self.anchor();
-        let mut n = 0;
-        while let Some(x) = buf.next() {
-            if !f(x) { break; }
-            n += 1;
-        }
-        buf.revert();
-        drop(buf);
-        Some((n, self.next_n(n)))
-    }
-
     #[doc(hidden)]
     fn set_anchor(&mut self, anchor: Option<usize>) -> Option<usize>;
     #[doc(hidden)]
     fn current_index(&mut self) -> usize;
+}
+
+/// Peek many characters until the predicate fails.
+pub fn span(this: &mut impl Buffer, mut f: impl FnMut(char) -> bool) -> Option<(usize, raw::Iter)> {
+    let mut buf = this.anchor();
+    let mut n = 0;
+    while let Some(x) = buf.next() {
+        if !f(x) { break; }
+        n += 1;
+    }
+    buf.revert();
+    drop(buf);
+    Some((n, this.next_n(n)))
 }
