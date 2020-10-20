@@ -18,7 +18,7 @@
 
 //! anchor buffers, i.e. normal buffers with anchors.
 
-use super::{raw, Buffer};
+use super::{raw, Buffer, Stream};
 
 /// A buffer with a custom anchor.
 /// - When dropped, reset the anchor.
@@ -41,21 +41,24 @@ impl<'a> Drop for AnchorBuffer<'a> {
     }
 }
 
-impl<'a> Buffer for AnchorBuffer<'a> {
+impl<'a> Stream for AnchorBuffer<'a> {
     fn peek(&mut self) -> Option<char> {
         self.buffer.peek()
     }
-
     fn peek_n(&mut self, n: usize) -> raw::Iter {
         self.buffer.peek_n(n)
     }
-
     fn next(&mut self) -> Option<char> {
         self.buffer.next()
     }
-
     fn next_n(&mut self, n: usize) -> raw::Iter {
         self.buffer.next_n(n)
+    }
+}
+
+impl<'a> Buffer for AnchorBuffer<'a> {
+    fn revert(&mut self) {
+        self.buffer.revert()
     }
 
     fn set_anchor(&mut self, anchor: Option<usize>) -> Option<usize> {
@@ -66,18 +69,13 @@ impl<'a> Buffer for AnchorBuffer<'a> {
         self.buffer.current_index()
     }
 
-    fn revert(&mut self) {
-        self.buffer.revert()
-    }
-
     impl_buffer_common!();
 }
 
 #[cfg(test)]
 mod tests {
     use crate::utils::LIPSUM;
-    use crate::buffer::normal::NormalBuffer;
-    use crate::buffer::{Buffer};
+    use crate::buffer::{Stream, Buffer, normal::NormalBuffer};
 
     #[test]
     fn test_basics() {

@@ -31,8 +31,8 @@ pub mod raw;
 pub mod normal;
 pub mod anchor;
 
-/// A back buffer for a scanner.
-pub trait Buffer {
+/// A continuous text stream.
+pub trait Stream {
     /// Peek the next character without consuming it.
     fn peek(&mut self) -> Option<char>;
     /// Peek no more than `n` characters without consuming them.
@@ -41,6 +41,10 @@ pub trait Buffer {
     fn next(&mut self) -> Option<char>;
     /// Take no more than `n` characters and consume them.
     fn next_n(&mut self, n: usize) -> raw::Iter;
+}
+
+/// A back buffer for a scanner.
+pub trait Buffer: Stream {
     /// Revert the buffer to its anchor.
     /// Panics if no anchor is present.
     fn revert(&mut self);
