@@ -11,3 +11,13 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+unic-ucd-category = "0.9"
+log = { version = "0.4", optional = true }
+
+[dev-dependencies]
+env_logger = "0.8"
+log = "0.4"
+
+[features]
+scanner_trace = ["log"]
+trace = ["scanner_trace"]

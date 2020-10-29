@@ -16,20 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! mini-haskell: light-weight Haskell for fun
+//! Haskell tokens.
 
-#![warn(missing_docs)]
-
-#[macro_use]
-pub mod utils;
-
-#[macro_use]
-pub mod char;
-
-pub mod token;
-pub mod buffer;
-pub mod scanner;
-pub mod error;
-
-#[cfg(test)]
-mod tests {}
+/// Haskell token types.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum LexemeType {
+    /// Whitespaces.
+    Whitespace,
+}

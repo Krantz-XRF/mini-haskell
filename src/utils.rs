@@ -96,3 +96,32 @@ macro_rules! assert_eq_str {
         assert_eq_iter!($x, $y.chars());
     }
 }
+
+macro_rules! method {
+    ($f: ident) => {
+        |x| x.$f()
+    }
+}
+
+#[cfg(test)]
+pub fn setup_logger() {
+    env_logger::Builder::new()
+        .format_level(true)
+        .format_indent(Some(4))
+        .format_timestamp(None)
+        .format_module_path(true)
+        .filter_level(log::LevelFilter::Trace)
+        .target(env_logger::Target::Stdout)
+        .write_style(env_logger::WriteStyle::Always)
+        .init()
+}
+
+#[cfg(feature = "scanner_trace")]
+macro_rules! scanner_trace {
+    ($($params: tt)+) => {
+        log::trace!(target: "scanner", $($params)+);
+    }
+}
+
+#[cfg(not(feature = "scanner_trace"))]
+macro_rules! scanner_trace { ($($params: tt)*) => {} }

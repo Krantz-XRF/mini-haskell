@@ -18,6 +18,8 @@
 
 //! character related utilities
 
+use unic_ucd_category::GeneralCategory;
+
 /// ASCII character categories.
 pub enum Ascii {
     /// Any ASCII
@@ -48,12 +50,18 @@ pub enum Unicode {
     AlphaNum,
     /// Unicode numeric: `Nd`, `Nl`, `No`.
     Numeric,
+    /// Unicode decimal digits: `Nd`.
+    Digit,
     /// Unicode lowercase letters: `Lowercase`.
     Lower,
     /// Unicode uppercase letters: `Uppercase`.
     Upper,
     /// Unicode whitespaces: `White_Space`.
     White,
+    /// Unicode symbol: `Sm`, `Sc`, `Sk`, `So`.
+    Symbol,
+    /// Unicode punctuation: `Pc`, `Pd`, `Ps`, `Pe`, `Pi`, `Pf`.
+    Punct,
 }
 
 /// Anything that can be used as a character predicate.
@@ -84,9 +92,12 @@ impl CharPredicate for Unicode {
             Unicode::Alpha => x.is_alphabetic(),
             Unicode::AlphaNum => x.is_alphanumeric(),
             Unicode::Numeric => x.is_numeric(),
+            Unicode::Digit => GeneralCategory::of(x) == GeneralCategory::DecimalNumber,
             Unicode::Lower => x.is_lowercase(),
             Unicode::Upper => x.is_uppercase(),
             Unicode::White => x.is_whitespace(),
+            Unicode::Symbol => GeneralCategory::of(x).is_symbol(),
+            Unicode::Punct => GeneralCategory::of(x).is_punctuation(),
         }
     }
 }
@@ -99,94 +110,179 @@ impl CharPredicate for str {
     fn check(&self, x: char) -> bool { self.contains(x) }
 }
 
+impl<'a> CharPredicate for &'a str {
+    fn check(&self, x: char) -> bool { (*self).check(x) }
+}
+
+/// Negation of a character predicate.
+#[repr(transparent)]
+pub struct NotPred<P: CharPredicate + Sized> (pub P);
+
+impl<P: CharPredicate> CharPredicate for NotPred<P> {
+    #[inline]
+    fn check(&self, x: char) -> bool { !self.0.check(x) }
+}
+
 #[allow(unused_macros)]
+macro_rules! not { ($p: expr) => { $crate::char::NotPred($p) } }
+
+/// Logical or of 2 character predicates.
+pub struct OrPred<P: CharPredicate, Q: CharPredicate>(pub P, pub Q);
+
+impl<P: CharPredicate, Q: CharPredicate> CharPredicate for OrPred<P, Q> {
+    #[inline]
+    fn check(&self, x: char) -> bool { self.0.check(x) || self.1.check(x) }
+}
+
+#[allow(unused_macros)]
+macro_rules! any {
+    ($p: expr) => { $p };
+    ($p: expr, $($ps: expr),+) => {
+        $crate::char::OrPred($p, any!($($ps),+))
+    }
+}
+
+/// Logical and of 2 character predicates.
+pub struct AndPred<P: CharPredicate, Q: CharPredicate>(pub P, pub Q);
+
+impl<P: CharPredicate, Q: CharPredicate> CharPredicate for AndPred<P, Q> {
+    #[inline]
+    fn check(&self, x: char) -> bool { self.0.check(x) && self.1.check(x) }
+}
+
+#[allow(unused_macros)]
+macro_rules! all {
+    ($p: expr) => { $p };
+    ($p: expr, $($ps: expr),+) => {
+        $crate::char::AndPred($p, all!($($ps),+))
+    }
+}
+
+/// Common interface for a `Option` like structure.
+/// It is strictly weaker than the not yet stable `std::ops::Try` trait.
+/// It is named after `Maybe`, `Just`, and `Nothing` from Haskell.
+pub trait Maybe {
+    /// The content type in a `Just`.
+    type Content;
+    /// Construct a `Just`:
+    /// - `Some` for `Optional`
+    /// - `Ok` for `Result`
+    fn just(x: Self::Content) -> Self;
+    /// Consumes the value and makes an `Optional`.
+    fn into_optional(self) -> Option<Self::Content>;
+    /// Is `self` a failure?
+    fn is_nothing(&self) -> bool;
+    /// Is `self` a success?
+    fn is_just(&self) -> bool { !self.is_nothing() }
+}
+
+impl<T> Maybe for Option<T> {
+    type Content = T;
+    fn just(x: T) -> Self { Some(x) }
+    fn into_optional(self) -> Option<Self::Content> { self }
+    fn is_nothing(&self) -> bool { self.is_none() }
+}
+
+impl<T, E> Maybe for std::result::Result<T, E> {
+    type Content = T;
+    fn just(x: T) -> Self { Ok(x) }
+    fn into_optional(self) -> Option<Self::Content> { self.ok() }
+    fn is_nothing(&self) -> bool { self.is_err() }
+}
+
+macro_rules! alt {
+    ($lexer: expr) => { scanner_trace!("alt: failed"); };
+    ($lexer: expr, $f: expr $(, $($rest: tt)+)?) => {
+        scanner_trace!("alt: try parsing {}", stringify!($f));
+        if let Some(res) = $crate::char::Maybe::into_optional($lexer.anchored($f)) {
+            scanner_trace!("ok: {}", stringify!($f));
+            return $crate::char::Maybe::just(res);
+        }
+        scanner_trace!("failed: {}", stringify!($f));
+        alt!($lexer $(, $($rest)+)?);
+    }
+}
+
+macro_rules! simple_alt {
+    ($lexer: expr $(, $($rest: tt)+)?) => {
+        {
+            alt!($lexer, $($($rest)+)?);
+            None
+        }
+    }
+}
+
+macro_rules! choice {
+    ($res: expr; $($rest: tt)+) => {
+        |scanner| {
+            analyse!(scanner, $($rest)+);
+            $crate::char::Maybe::just($res)
+        }
+    };
+    ($($rest: tt)+) => { choice!((); $($rest)+) }
+}
+
 macro_rules! analyse {
     ($lexer: expr) => {};
-    ($lexer: expr, $x: ident : $($rest: tt)+) => {
-        check_and_continue_analyse!(once, nodrop, $lexer, $x, $($rest)+);
+    ($lexer: expr, $x: ident : * $predicate: expr $(, $($rest: tt)+)?) => {
+        check!(many, $lexer, $x, $predicate);
+        analyse!($lexer $(, $($rest)+)?);
     };
-    ($lexer: expr, $x: ident + : $($rest: tt)+) => {
-        check_and_continue_analyse!(some, nodrop, $lexer, $x, $($rest)+);
+    ($lexer: expr, $x: ident : + $predicate: expr $(, $($rest: tt)+)?) => {
+        check!(some, $lexer, $x, $predicate);
+        analyse!($lexer $(, $($rest)+)?);
     };
-    ($lexer: expr, $x: ident * : $($rest: tt)+) => {
-        check_and_continue_analyse!(many, nodrop, $lexer, $x, $($rest)+);
+    ($lexer: expr, $x: ident : $predicate: expr $(, $($rest: tt)+)?) => {
+        check!(once, $lexer, $x, $predicate);
+        analyse!($lexer $(, $($rest)+)?);
     };
-    ($lexer: expr, $($rest: tt)+) => {
-        check_and_continue_analyse!(once, drop, $lexer, _x, $($rest)+);
+    ($lexer: expr, * $predicate: expr $(, $($rest: tt)+)?) => {
+        check!(many, $lexer, drop __x, $predicate);
+        analyse!($lexer $(, $($rest)+)?);
     };
-}
-
-#[allow(unused_macros)]
-macro_rules! drop_and_analyse {
-    (drop $x: ident, $($rest: tt)*) => {
-        std::mem::drop($x);
-        analyse!($($rest)*);
+    ($lexer: expr, + $predicate: expr $(, $($rest: tt)+)?) => {
+        check!(some, $lexer, drop __x, $predicate);
+        analyse!($lexer $(, $($rest)+)?);
     };
-    (nodrop $x: ident, $($rest: tt)*) => {
-        analyse!($($rest)*);
+    ($lexer: expr, $predicate: expr $(, $($rest: tt)+)?) => {
+        check!(once, $lexer, drop __x, $predicate);
+        analyse!($lexer $(, $($rest)+)?);
     }
 }
 
-#[allow(unused_macros)]
-macro_rules! check_and_continue_analyse {
-    ($count: ident, $drop: ident, $lexer: expr, $x: ident,
-     any($($($params: tt)+)?) $(, $($rest: tt)+)?) => {
-        check_once_many_some!($lexer, $count, $x, check_any!($x $(, $($params)+)?));
-        drop_and_analyse!($drop $x, $lexer $(, $($rest)+)?);
+macro_rules! check {
+    ($count: ident, $lexer: expr, drop $__x: ident, $predicate: expr) => {
+        check_impl!($count, $lexer, $__x, $predicate);
+        let $__x = $__x; // effectively drop $__x
     };
-    ($count: ident, $drop: ident, $lexer: expr, $x: ident,
-     all($($($params: tt)+)?) $(, $($rest: tt)+)?) => {
-        check_once_many_some!($lexer, $count, $x, check_all!($x $(, $($params)+)?));
-        drop_and_analyse!($drop $x, $lexer $(, $($rest)+)?);
-    };
-    ($count: ident, $drop: ident, $lexer: expr, $x: ident, $m: expr $(, $($rest: tt)+)?) => {
-        check_once_many_some!($lexer, $count, $x, $m.check($x));
-        drop_and_analyse!($drop $x, $lexer $(, $($rest)+)?);
+    ($count: ident, $lexer: expr, $x: ident, $predicate: expr) => {
+        scanner_trace!("analyse: checking {}", stringify!($predicate));
+        check_impl!($count, $lexer, $x, $predicate);
     }
 }
 
-#[allow(unused_macros)]
-macro_rules! check_once_many_some {
-    ($lexer: expr, once, $x: ident, $cond: expr) => {
+macro_rules! check_impl {
+    (once, $lexer: expr, $x: ident, $predicate: expr) => {
         let $x = $lexer.next()?;
-        if !$cond { return None; }
-        let $x = $x;
+        if !$predicate.check($x) {
+            scanner_trace!("analyse: checking {} ... failed", stringify!($predicate));
+            return None;
+        }
+        scanner_trace!("analyse: checking {} ... ok", stringify!($predicate));
+        let $x = $x; // retain unused variable warnings
     };
-    ($lexer: expr, many, $x: ident, $cond: expr) => {
-        let $x = $crate::buffer::span($lexer, |$x| { $cond })?;
+    (many, $lexer: expr, $x: ident, $predicate: expr) => {
+        let $x = $crate::buffer::span_collect($lexer, |$x| { $predicate.check($x) });
+        scanner_trace!("analyse: checking *{} ... ok", stringify!($predicate));
     };
-    ($lexer: expr, some, $x: ident, $cond: expr) => {
-        let $x = $crate::buffer::span($lexer, |$x| { $cond })?;
-        if $x.len() == 0 { return None; }
-        let $x = $x;
-    };
-}
-
-#[allow(unused_macros)]
-macro_rules! check_any {
-    ($x: ident) => { false };
-    ($x: ident, any($($($params: tt)+)?) $(, $($rest: tt)+)?) => {
-        check_any!($x $(, $($params)+)? $(, $($rest)+)?)
-    };
-    ($x: ident, all($($($params: tt)+)?) $(, $($rest: tt)+)?) => {
-        check_all!($x $(, $($params)+)?) || check_any!($x $(, $($rest)+)?)
-    };
-    ($x: ident, $m: expr $(, $($rest: tt)+)?) => {
-        $m.check($x) || check_any!($x $(, $($rest)+)?)
-    }
-}
-
-#[allow(unused_macros)]
-macro_rules! check_all {
-    ($x: ident) => { true };
-    ($x: ident, any($($($params: tt)+)?) $(, $($rest: tt)+)?) => {
-        check_any!($x $(, $($params)+)?) && check_all!($x $(, $($rest)+)?)
-    };
-    ($x: ident, all($($($params: tt)+)?) $(, $($rest: tt)+)?) => {
-        check_all!($x $(, $($params)+)? $(, $($rest)+)?)
-    };
-    ($x: ident, $m: expr $(, $($rest: tt)+)?) => {
-        $m.check($x) && check_all!($x $(, $($rest)+)?)
+    (some, $lexer: expr, $x: ident, $predicate: expr) => {
+        let $x = $crate::buffer::span_collect($lexer, |$x| { $predicate.check($x) });
+        if $x.len() == 0 {
+            scanner_trace!("analyse: checking {} ... failed", stringify!($predicate));
+            return None;
+        }
+        scanner_trace!("analyse: checking +{} ... ok", stringify!($predicate));
+        let $x = $x; // retain unused variable warnings
     }
 }
 
@@ -202,8 +298,8 @@ mod tests {
         fn parse(scanner: &mut impl Stream) -> Option<()> {
             analyse!(scanner);
             analyse!(scanner, x: Ascii::Any);
-            analyse!(scanner, x+: Unicode::Alpha, '\n');
-            analyse!(scanner, x*: any(Unicode::Alpha, Ascii::Digit));
+            analyse!(scanner, x: +Unicode::Alpha, '\n');
+            analyse!(scanner, x: *any!(Unicode::Alpha, Ascii::Digit));
             analyse!(scanner, x: "aeiou");
             Some(())
         }

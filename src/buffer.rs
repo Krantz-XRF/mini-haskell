@@ -57,12 +57,24 @@ pub trait Buffer: Stream {
     fn current_index(&mut self) -> usize;
 }
 
-/// Peek many characters until the predicate fails.
-pub fn span(this: &mut impl Stream, mut f: impl FnMut(char) -> bool) -> Option<Vec<char>> {
-    let mut buf = Vec::new();
-    while let Some(x) = this.next() {
+/// Pop many characters until the predicate fails.
+pub fn span<T>(this: &mut impl Stream, mut f: impl FnMut(char) -> bool,
+               init: T, mut join: impl FnMut(&mut T, char)) -> T {
+    let mut res = init;
+    while let Some(x) = this.peek() {
         if !f(x) { break; }
-        buf.push(x);
+        join(&mut res, x);
+        this.next();
     }
-    Some(buf)
+    res
+}
+
+/// Pop many characters until the predicate fails, collect them into a `Vec`.
+pub fn span_collect(this: &mut impl Stream, f: impl FnMut(char) -> bool) -> Vec<char> {
+    span(this, f, Vec::new(), Vec::push)
+}
+
+/// Pop many characters until the predicate fails, ignore the characters.
+pub fn span_(this: &mut impl Stream, f: impl FnMut(char) -> bool) {
+    span(this, f, (), |_, _| ())
 }
