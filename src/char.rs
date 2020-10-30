@@ -283,7 +283,6 @@ macro_rules! check {
         let $__x = $__x; // effectively drop $__x
     };
     ($count: ident, $lexer: expr, $x: ident, $predicate: expr) => {
-        scanner_trace!("analyse: checking {}", stringify!($predicate));
         check_impl!($count, $lexer, $x, $predicate);
     }
 }
