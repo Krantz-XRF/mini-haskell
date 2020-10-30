@@ -19,13 +19,12 @@
 //! lexical scanner for mini-haskell
 
 use crate::utils::*;
-use crate::buffer::{Buffer, Stream, raw::Iter};
+use crate::buffer::{Buffer, Stream};
 use crate::char::{CharPredicate, Maybe, Unicode};
-use crate::token::LexemeType;
-use crate::error::{DiagnosticEngine, DiagnosticMessage, DiagnosticReporter};
-use crate::error::DiagnosticMessage::Error;
+use crate::token::LexemeType::{self, Whitespace};
+use crate::error::{DiagnosticEngine, DiagnosticReporter};
+use crate::error::DiagnosticMessage::{self, Error};
 use crate::error::Error::{IncompleteLexeme, InvalidChar};
-use crate::token::LexemeType::Whitespace;
 
 /// Source location.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -89,10 +88,6 @@ impl<'a> Stream for Scanner<'a> {
         self.buffer.peek()
     }
 
-    fn peek_n(&mut self, n: usize) -> Iter {
-        self.buffer.peek_n(n)
-    }
-
     fn next(&mut self) -> Option<char> {
         let res = self.buffer.next();
         if let Some(x) = res {
@@ -113,11 +108,6 @@ impl<'a> Stream for Scanner<'a> {
             }
         }
         res
-    }
-
-    fn next_n(&mut self, _: usize) -> Iter {
-        panic!("Never use Scanner::next_n, because location \
-                information cannot be properly maintained")
     }
 }
 

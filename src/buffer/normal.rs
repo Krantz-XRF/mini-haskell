@@ -19,7 +19,7 @@
 //! normal buffers, basically a raw buffer with an associated input iterator.
 
 use crate::utils::*;
-use super::{raw, Buffer, Stream};
+use super::{raw, Buffer, Stream, StreamN};
 
 /// Buffer tied with an input iterator.
 pub struct NormalBuffer<S: Iterator<Item=char>> {
@@ -50,14 +50,16 @@ impl<S: Iterator<Item=char>> Stream for NormalBuffer<S> {
         self.buffer.peek()
     }
 
-    fn peek_n(&mut self, n: usize) -> raw::Iter {
-        self.read_n(n);
-        self.buffer.peek_n(n)
-    }
-
     fn next(&mut self) -> Option<char> {
         self.read_n(1);
         self.buffer.pop()
+    }
+}
+
+impl<S: Iterator<Item=char>> StreamN for NormalBuffer<S> {
+    fn peek_n(&mut self, n: usize) -> raw::Iter {
+        self.read_n(n);
+        self.buffer.peek_n(n)
     }
 
     fn next_n(&mut self, n: usize) -> raw::Iter {
@@ -84,7 +86,7 @@ impl<S: Iterator<Item=char>> Buffer for NormalBuffer<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::{NormalBuffer, Stream};
+    use super::{NormalBuffer, StreamN};
     use crate::utils::LIPSUM;
 
     #[test]

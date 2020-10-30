@@ -18,18 +18,22 @@
 
 //! anchor buffers, i.e. normal buffers with anchors.
 
-use super::{raw, Buffer, Stream};
+use super::{raw, Buffer, Stream, StreamN};
+
+pub(super) trait BufferN: Buffer + StreamN {}
+
+impl<T: Buffer + StreamN> BufferN for T {}
 
 /// A buffer with a custom anchor.
 /// - When dropped, reset the anchor.
 /// - When `revert` is called, reset `current` to the anchor.
 pub struct AnchorBuffer<'a> {
-    buffer: &'a mut dyn Buffer,
+    buffer: &'a mut dyn BufferN,
     anchor: Option<usize>,
 }
 
 impl<'a> AnchorBuffer<'a> {
-    pub(super) fn new(buffer: &'a mut dyn Buffer) -> Self {
+    pub(super) fn new(buffer: &'a mut dyn BufferN) -> Self {
         let idx = buffer.current_index();
         AnchorBuffer { anchor: buffer.set_anchor(Some(idx)), buffer }
     }
@@ -45,11 +49,14 @@ impl<'a> Stream for AnchorBuffer<'a> {
     fn peek(&mut self) -> Option<char> {
         self.buffer.peek()
     }
-    fn peek_n(&mut self, n: usize) -> raw::Iter {
-        self.buffer.peek_n(n)
-    }
     fn next(&mut self) -> Option<char> {
         self.buffer.next()
+    }
+}
+
+impl<'a> StreamN for AnchorBuffer<'a> {
+    fn peek_n(&mut self, n: usize) -> raw::Iter {
+        self.buffer.peek_n(n)
     }
     fn next_n(&mut self, n: usize) -> raw::Iter {
         self.buffer.next_n(n)
@@ -75,7 +82,7 @@ impl<'a> Buffer for AnchorBuffer<'a> {
 #[cfg(test)]
 mod tests {
     use crate::utils::LIPSUM;
-    use crate::buffer::{Stream, Buffer, normal::NormalBuffer};
+    use crate::buffer::{StreamN, Buffer, normal::NormalBuffer};
 
     #[test]
     fn test_basics() {

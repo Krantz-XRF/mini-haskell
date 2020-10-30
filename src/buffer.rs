@@ -35,10 +35,14 @@ pub mod anchor;
 pub trait Stream {
     /// Peek the next character without consuming it.
     fn peek(&mut self) -> Option<char>;
-    /// Peek no more than `n` characters without consuming them.
-    fn peek_n(&mut self, n: usize) -> raw::Iter;
     /// Take the next character and consume it.
     fn next(&mut self) -> Option<char>;
+}
+
+/// A continuous text stream, capable of extracting chunks of characters.
+pub trait StreamN: Stream {
+    /// Peek no more than `n` characters without consuming them.
+    fn peek_n(&mut self, n: usize) -> raw::Iter;
     /// Take no more than `n` characters and consume them.
     fn next_n(&mut self, n: usize) -> raw::Iter;
 }
