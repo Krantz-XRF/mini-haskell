@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! lexical scanner for mini-haskell
+//! lexical scanner for mini-haskell.
 
 use crate::utils::*;
 use crate::buffer::{Buffer, Stream};

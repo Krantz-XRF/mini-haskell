@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! character related utilities
+//! character related utilities.
 
 use unic_ucd_category::GeneralCategory;
 

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Error reporting for the mini-Haskell compiler.
+//! error reporting for the mini-Haskell compiler.
 
 use std::mem::ManuallyDrop;
 use crate::scanner::{LexError, Location, Range};
