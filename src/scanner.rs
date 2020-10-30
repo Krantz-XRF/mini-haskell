@@ -18,13 +18,19 @@
 
 //! lexical scanner for mini-haskell.
 
+pub mod whitespace;
+
 use crate::utils::*;
 use crate::buffer::{Buffer, Stream};
 use crate::char::{CharPredicate, Maybe, Unicode};
-use crate::token::LexemeType::{self, Whitespace};
-use crate::error::{DiagnosticEngine, DiagnosticReporter};
-use crate::error::DiagnosticMessage::{self, Error};
-use crate::error::Error::{IncompleteLexeme, InvalidChar};
+use crate::token::LexemeType;
+use crate::error::{
+    DiagnosticEngine,
+    DiagnosticReporter,
+    DiagnosticMessage,
+    DiagnosticMessage::Error,
+    Error::InvalidChar,
+};
 
 /// Source location.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -183,122 +189,5 @@ impl<'a> Scanner<'a> {
     /// Fail with `t` as the expected token type.
     pub fn expected<T>(&mut self, t: LexemeType) -> Result<T> {
         Err(LexError { expected: t, unexpected: self.peek() })
-    }
-
-    /// Haskell 2010 Report (2.2.whitespace)
-    pub fn whitespace(&mut self) -> Result<()> {
-        // whitespace -> whitestuff {whitestuff}
-        self.some_(&mut method!(whitestuff))
-    }
-
-    fn whitestuff(&mut self) -> Result<()> {
-        // whitestuff -> whitechar | comment | ncomment
-        alt!(self, method!(whitechar), method!(comment), method!(ncomment));
-        self.expected(Whitespace)
-    }
-
-    fn whitechar(&mut self) -> Option<()> {
-        // whitechar  -> newline | vertab | space | tab | uniWhite
-        // vertab     -> a vertical tab
-        // space      -> a space
-        // uniWhite   -> any Unicode character defined as whitespace
-        simple_alt!(self,
-            method!(newline), method!(tab),
-            choice!(any!('\u{B}', ' ', Unicode::White)))
-    }
-
-    fn newline(&mut self) -> Option<()> {
-        // newline    -> return linefeed | return | linefeed | formfeed
-        // return     -> a carriage return
-        // linefeed   -> a line feed
-        // formfeed   -> a form feed
-        let res = simple_alt!(self,
-                choice!('\r', '\n'),
-                choice!(any!('\r', '\n', '\u{C}')));
-        if res.is_some() {
-            self.location.newline();
-        }
-        res
-    }
-
-    fn tab(&mut self) -> Option<()> {
-        // tab        -> a horizontal tab
-        analyse!(self, '\t');
-        self.location.tablise();
-        Some(())
-    }
-
-    fn comment(&mut self) -> Option<()> {
-        // comment    -> dashes [ any<symbol> {any} ] newline
-        analyse!(self, '-', '-', *'-');
-        if Unicode::Symbol.check(self.peek()?) { return None; }
-        analyse!(self, *not!("\r\n\u{C}"));
-        self.newline()
-    }
-
-    fn ncomment(&mut self) -> Option<()> {
-        // ncomment   -> opencom ANYseq {ncomment ANYseq} closecom
-        // opencom    -> {-
-        // closecom   -> -}
-        // ANYseq     -> {ANY}<{ANY} ( opencom | closecom ) {ANY}>
-        // ANY        -> graphic | whitechar
-        // any        -> graphic | space | tab
-        // graphic    -> small | large | symbol | digit | special | " | '
-        let begin = self.location;
-        analyse!(self, '{', '-');
-        const WHATEVER: char = '\u{0}';
-        let mut last = WHATEVER;
-        let mut depth = 1;
-        while let Some(x) = self.next() {
-            match (last, x) {
-                ('-', '}') => {
-                    last = x;
-                    depth -= 1
-                }
-                ('{', '-') => {
-                    last = WHATEVER;
-                    depth += 1
-                }
-                _ => last = x,
-            }
-            if depth == 0 { break; }
-        }
-        if depth != 0 {
-            let end = self.location;
-            self.report(Error(IncompleteLexeme(Whitespace)))
-                .within(begin, end)
-        }
-        Some(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::buffer::normal::NormalBuffer;
-    use crate::scanner::Scanner;
-    use crate::error::{DiagnosticEngine, Diagnostic};
-    use crate::utils::setup_logger;
-
-    fn test_scanner_on<U: Eq + std::fmt::Debug>(
-        input: &str, f: impl for<'a> FnOnce(&'a mut Scanner<'a>) -> U,
-        res: U, diags: &[Diagnostic]) {
-        let mut buf = NormalBuffer::new(input.chars());
-        let mut diag_engine = DiagnosticEngine::new();
-        let mut scanner = Scanner::new(&mut buf, &mut diag_engine);
-        assert_eq!(f(&mut scanner), res);
-        assert_eq_iter!(diag_engine.iter(), diags.iter());
-    }
-
-    #[test]
-    fn test_whitespace() {
-        setup_logger();
-        fn test(input: &str) {
-            test_scanner_on(input, method!(whitestuff), Ok(()), &[]);
-        }
-        test("\r\n");
-        test("\rA");
-        test("\nB");
-        test("--- Comment123!@#$%^&*()-=_+[]{}\\|;:'\",<.>/?`~\n");
-        test("{- {--- AA -} B--}");
     }
 }
