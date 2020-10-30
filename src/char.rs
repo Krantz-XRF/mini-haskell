@@ -106,6 +106,19 @@ impl CharPredicate for char {
     fn check(&self, x: char) -> bool { *self == x }
 }
 
+/// A character range, used as a candidate for `CharPredicate`.
+///
+/// ```
+/// # use mini_haskell::char::CharPredicate;
+/// assert_eq!(['a' ..= 'z'].check('c'), true);
+/// assert_eq!(['a' ..= 'z'].check('3'), false);
+/// ```
+pub type CharRange = std::ops::Range<char>;
+
+impl CharPredicate for CharRange {
+    fn check(&self, x: char) -> bool { self.contains(&x) }
+}
+
 impl CharPredicate for str {
     fn check(&self, x: char) -> bool { self.contains(x) }
 }
