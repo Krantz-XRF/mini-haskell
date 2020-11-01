@@ -16,20 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! mini-haskell: light-weight Haskell for fun
+//! identifiers: see "Haskell 2010 Report: 2.4 Identifiers and Operators".
 
-#![warn(missing_docs)]
+use super::Scanner;
 
-#[macro_use]
-pub mod utils;
-
-#[macro_use]
-pub mod char;
-
-pub mod lexeme;
-pub mod buffer;
-pub mod scanner;
-pub mod error;
-
-#[cfg(test)]
-mod tests {}
+impl<'a> Scanner<'a> {}

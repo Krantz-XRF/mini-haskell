@@ -16,14 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! whitespace: see "Haskell 2010 Report: 2.2 Lexical Program Structure".
+//! whitespaces: see "Haskell 2010 Report: 2.2 Lexical Program Structure" and
+//! "Haskell 2010 Report: 2.3 Comments".
 
 use super::{Scanner, Result};
-use crate::token::LexemeType::Whitespace;
+use crate::lexeme::LexemeType::Whitespace;
 use crate::char::{Unicode, CharPredicate};
 use crate::buffer::Stream;
-use crate::error::DiagnosticMessage::Error;
-use crate::error::Error::IncompleteLexeme;
+use crate::error::{DiagnosticMessage::Error, Error::IncompleteLexeme};
 
 impl<'a> Scanner<'a> {
     /// Haskell 2010 Report (2.2.whitespace)

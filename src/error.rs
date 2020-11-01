@@ -20,7 +20,7 @@
 
 use std::mem::ManuallyDrop;
 use crate::scanner::{LexError, Location, Range};
-use crate::token::LexemeType;
+use crate::lexeme::LexemeType;
 
 /// An exhaustive list of compiler errors.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

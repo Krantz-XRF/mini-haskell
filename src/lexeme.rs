@@ -16,11 +16,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Haskell tokens.
+//! Haskell lexemes.
 
-/// Haskell token types.
+/// Haskell lexeme types.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum LexemeType {
     /// Whitespaces.
     Whitespace,
+    /// Identifiers.
+    Identifier,
+    /// Integers.
+    Integer,
+}
+
+/// Haskell lexemes.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub struct Lexeme {
+    /// text length of this lexeme, starting at the current position.
+    pub length: usize,
+    /// lexeme payload (contents).
+    pub r#type: LexemeType,
 }

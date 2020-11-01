@@ -19,11 +19,12 @@
 //! lexical scanner for mini-haskell.
 
 pub mod whitespace;
+pub mod identifier;
 
 use crate::utils::*;
 use crate::buffer::{Buffer, Stream};
 use crate::char::{CharPredicate, Maybe, Unicode};
-use crate::token::LexemeType;
+use crate::lexeme::LexemeType;
 use crate::error::{
     DiagnosticEngine,
     DiagnosticReporter,
