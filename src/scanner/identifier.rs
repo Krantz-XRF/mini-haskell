@@ -20,4 +20,4 @@
 
 use super::Scanner;
 
-impl<'a> Scanner<'a> {}
+impl<I> Scanner<I> {}

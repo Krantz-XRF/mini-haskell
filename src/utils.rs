@@ -31,43 +31,6 @@ pub const fn round_to(x: usize, n: usize) -> usize {
     (x + n - 1) / n * n
 }
 
-/// Return the minimum and the maxinum.
-///
-/// ```
-/// # use mini_haskell::utils::min_max;
-/// assert_eq!((true, 1, 2), min_max(1, 2));
-/// assert_eq!((false, 1, 2), min_max(2, 1));
-/// ```
-#[inline]
-pub fn min_max<T: Ord>(x: T, y: T) -> (bool, T, T) {
-    if x <= y {
-        (true, x, y)
-    } else {
-        (false, y, x)
-    }
-}
-
-/// Good old self-increment.
-///
-/// ```
-/// # use mini_haskell::utils::inc;
-/// let mut x = 42;
-/// assert_eq!(inc(&mut x), 42);
-/// assert_eq!(x, 43);
-/// ```
-#[inline]
-pub fn inc(x: &mut usize) -> usize {
-    let res = *x;
-    *x += 1;
-    res
-}
-
-/// If greater, return the difference, else `None` is returned.
-#[inline]
-pub fn greater(x: usize, y: usize) -> Option<usize> {
-    if x > y { Some(x - y) } else { None }
-}
-
 /// Lorem ipsum.
 pub const LIPSUM: &str =
     "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum facilisis turpis ex, eu \
@@ -83,24 +46,10 @@ pub const LIPSUM: &str =
     pharetra urna ac finibus. Aenean ac dignissim orci. Praesent vulputate massa a vulputate \
     facilisis. Phasellus sed.";
 
-#[cfg(test)]
-macro_rules! assert_eq_iter {
-    ($x: expr, $y: expr) => {
-        assert!($x.eq($y));
-    }
-}
-
-#[cfg(test)]
-macro_rules! assert_eq_str {
-    ($x: expr, $y: expr) => {
-        assert_eq_iter!($x, $y.chars());
-    }
-}
-
 macro_rules! method {
     ($f: ident) => {
         |x| x.$f()
-    }
+    };
 }
 
 #[cfg(test)]
@@ -124,4 +73,6 @@ macro_rules! scanner_trace {
 }
 
 #[cfg(not(feature = "scanner_trace"))]
-macro_rules! scanner_trace { ($($params: tt)*) => {} }
+macro_rules! scanner_trace {
+    ($($params: tt)*) => {};
+}

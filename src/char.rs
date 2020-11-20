@@ -103,7 +103,9 @@ impl CharPredicate for Unicode {
 }
 
 impl CharPredicate for char {
-    fn check(&self, x: char) -> bool { *self == x }
+    fn check(&self, x: char) -> bool {
+        *self == x
+    }
 }
 
 /// A character range (half open), used as a candidate for `CharPredicate`.
@@ -126,39 +128,55 @@ pub type CharRange = std::ops::Range<char>;
 pub type CharRangeInclusive = std::ops::RangeInclusive<char>;
 
 impl CharPredicate for CharRange {
-    fn check(&self, x: char) -> bool { self.contains(&x) }
+    fn check(&self, x: char) -> bool {
+        self.contains(&x)
+    }
 }
 
 impl CharPredicate for CharRangeInclusive {
-    fn check(&self, x: char) -> bool { self.contains(&x) }
+    fn check(&self, x: char) -> bool {
+        self.contains(&x)
+    }
 }
 
 impl CharPredicate for str {
-    fn check(&self, x: char) -> bool { self.contains(x) }
+    fn check(&self, x: char) -> bool {
+        self.contains(x)
+    }
 }
 
 impl<'a> CharPredicate for &'a str {
-    fn check(&self, x: char) -> bool { (*self).check(x) }
+    fn check(&self, x: char) -> bool {
+        (*self).check(x)
+    }
 }
 
 /// Negation of a character predicate.
 #[repr(transparent)]
-pub struct NotPred<P: CharPredicate + Sized> (pub P);
+pub struct NotPred<P: CharPredicate + Sized>(pub P);
 
 impl<P: CharPredicate> CharPredicate for NotPred<P> {
     #[inline]
-    fn check(&self, x: char) -> bool { !self.0.check(x) }
+    fn check(&self, x: char) -> bool {
+        !self.0.check(x)
+    }
 }
 
 #[allow(unused_macros)]
-macro_rules! not { ($p: expr) => { $crate::char::NotPred($p) } }
+macro_rules! not {
+    ($p: expr) => {
+        $crate::char::NotPred($p)
+    };
+}
 
 /// Logical or of 2 character predicates.
 pub struct OrPred<P: CharPredicate, Q: CharPredicate>(pub P, pub Q);
 
 impl<P: CharPredicate, Q: CharPredicate> CharPredicate for OrPred<P, Q> {
     #[inline]
-    fn check(&self, x: char) -> bool { self.0.check(x) || self.1.check(x) }
+    fn check(&self, x: char) -> bool {
+        self.0.check(x) || self.1.check(x)
+    }
 }
 
 #[allow(unused_macros)]
@@ -174,7 +192,9 @@ pub struct AndPred<P: CharPredicate, Q: CharPredicate>(pub P, pub Q);
 
 impl<P: CharPredicate, Q: CharPredicate> CharPredicate for AndPred<P, Q> {
     #[inline]
-    fn check(&self, x: char) -> bool { self.0.check(x) && self.1.check(x) }
+    fn check(&self, x: char) -> bool {
+        self.0.check(x) && self.1.check(x)
+    }
 }
 
 #[allow(unused_macros)]
@@ -200,21 +220,43 @@ pub trait Maybe {
     /// Is `self` a failure?
     fn is_nothing(&self) -> bool;
     /// Is `self` a success?
-    fn is_just(&self) -> bool { !self.is_nothing() }
+    fn is_just(&self) -> bool {
+        !self.is_nothing()
+    }
 }
 
 impl<T> Maybe for Option<T> {
     type Content = T;
-    fn just(x: T) -> Self { Some(x) }
-    fn into_optional(self) -> Option<Self::Content> { self }
-    fn is_nothing(&self) -> bool { self.is_none() }
+    fn just(x: T) -> Self {
+        Some(x)
+    }
+    fn into_optional(self) -> Option<Self::Content> {
+        self
+    }
+    fn is_nothing(&self) -> bool {
+        self.is_none()
+    }
 }
 
 impl<T, E> Maybe for std::result::Result<T, E> {
     type Content = T;
-    fn just(x: T) -> Self { Ok(x) }
-    fn into_optional(self) -> Option<Self::Content> { self.ok() }
-    fn is_nothing(&self) -> bool { self.is_err() }
+    fn just(x: T) -> Self {
+        Ok(x)
+    }
+    fn into_optional(self) -> Option<Self::Content> {
+        self.ok()
+    }
+    fn is_nothing(&self) -> bool {
+        self.is_err()
+    }
+}
+
+/// A character stream, common interface for macros here.
+pub trait Stream {
+    /// Peek the next character without consuming it.
+    fn peek(&mut self) -> Option<char>;
+    /// Take the next character and consume it.
+    fn next(&mut self) -> Option<char>;
 }
 
 macro_rules! alt {
@@ -280,11 +322,11 @@ macro_rules! analyse {
 macro_rules! check {
     ($count: ident, $lexer: expr, drop $__x: ident, $predicate: expr) => {
         check_impl!($count, $lexer, $__x, $predicate);
-        let $__x = $__x; // effectively drop $__x
+        let $__x = (); // effectively drop $__x
     };
     ($count: ident, $lexer: expr, $x: ident, $predicate: expr) => {
         check_impl!($count, $lexer, $x, $predicate);
-    }
+    };
 }
 
 macro_rules! check_impl {
@@ -298,30 +340,30 @@ macro_rules! check_impl {
         let $x = $x; // retain unused variable warnings
     };
     (many, $lexer: expr, $x: ident, $predicate: expr) => {
-        let $x = $crate::buffer::span_collect($lexer, |$x| { $predicate.check($x) });
+        let $x = $lexer.span_collect(|$x| $predicate.check($x));
         scanner_trace!("analyse: checking *{} ... ok", stringify!($predicate));
     };
     (some, $lexer: expr, $x: ident, $predicate: expr) => {
-        let $x = $crate::buffer::span_collect($lexer, |$x| { $predicate.check($x) });
+        let $x = $lexer.span_collect(|$x| $predicate.check($x));
         if $x.len() == 0 {
             scanner_trace!("analyse: checking {} ... failed", stringify!($predicate));
             return None;
         }
         scanner_trace!("analyse: checking +{} ... ok", stringify!($predicate));
         let $x = $x; // retain unused variable warnings
-    }
+    };
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Unicode, Ascii, CharPredicate};
-    use crate::buffer::Stream;
+    use super::{Unicode, Ascii, CharPredicate, Stream};
+    use crate::scanner::Scanner;
 
     #[test]
     fn test_syntax() {
         #[allow(dead_code)]
         #[allow(unused_variables)]
-        fn parse(scanner: &mut impl Stream) -> Option<()> {
+        fn parse<I: std::io::Read>(scanner: &mut Scanner<I>) -> Option<()> {
             analyse!(scanner);
             analyse!(scanner, x: Ascii::Any);
             analyse!(scanner, x: +Unicode::Alpha, '\n');

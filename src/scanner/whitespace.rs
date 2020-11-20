@@ -19,13 +19,12 @@
 //! whitespaces: see "Haskell 2010 Report: 2.2 Lexical Program Structure" and
 //! "Haskell 2010 Report: 2.3 Comments".
 
-use super::{Scanner, Result};
+use super::{Result, Scanner};
+use crate::char::{CharPredicate, Unicode, Stream};
+use crate::error::{DiagnosticMessage::Error, Error::IncompleteLexeme, Diagnostic};
 use crate::lexeme::LexemeType::Whitespace;
-use crate::char::{Unicode, CharPredicate};
-use crate::buffer::Stream;
-use crate::error::{DiagnosticMessage::Error, Error::IncompleteLexeme};
 
-impl<'a> Scanner<'a> {
+impl<I: std::io::Read> Scanner<I> {
     /// Haskell 2010 Report (2.2.whitespace)
     pub fn whitespace(&mut self) -> Result<()> {
         // whitespace -> whitestuff {whitestuff}
@@ -106,8 +105,8 @@ impl<'a> Scanner<'a> {
         }
         if depth != 0 {
             let end = self.location;
-            self.report(Error(IncompleteLexeme(Whitespace)))
-                .within(begin, end)
+            Diagnostic::new(self.location, Error(IncompleteLexeme(Whitespace)))
+                .within(begin, end).report(&mut self.diagnostics)
         }
         Some(())
     }
@@ -115,28 +114,24 @@ impl<'a> Scanner<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::buffer::normal::NormalBuffer;
+    use crate::char::Stream;
     use crate::scanner::Scanner;
-    use crate::error::{DiagnosticEngine, Diagnostic};
     use crate::utils::setup_logger;
-    use crate::buffer::Stream;
 
     fn test_scanner_on<U: Eq + std::fmt::Debug>(
-        input: &str, f: impl for<'a, 'b> FnOnce(&'a mut Scanner<'b>) -> U,
-        res: U, next: Option<char>, diags: &[Diagnostic]) {
-        let mut buf = NormalBuffer::new(input.chars());
-        let mut diag_engine = DiagnosticEngine::new();
-        let mut scanner = Scanner::new(&mut buf, &mut diag_engine);
+        input: &str,
+        f: impl for<'a> FnOnce(&'a mut Scanner<&[u8]>) -> U,
+        res: U, next: Option<char>) {
+        let mut scanner = Scanner::new(input.as_bytes());
         assert_eq!(f(&mut scanner), res);
         assert_eq!(scanner.next(), next);
-        assert_eq_iter!(diag_engine.iter(), diags.iter());
     }
 
     #[test]
     fn test_whitespace() {
         setup_logger();
         fn test(input: &str) {
-            test_scanner_on(input, method!(whitestuff), Ok(()), None, &[]);
+            test_scanner_on(input, method!(whitestuff), Ok(()), None);
         }
         test("\r\n");
         test("\r");
@@ -145,4 +140,3 @@ mod tests {
         test("{- {--- AA -} B--}");
     }
 }
-

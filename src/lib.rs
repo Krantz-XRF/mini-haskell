@@ -27,7 +27,8 @@ pub mod utils;
 pub mod char;
 
 pub mod lexeme;
-pub mod buffer;
+pub mod rc_view;
+pub mod input;
 pub mod scanner;
 pub mod error;
 

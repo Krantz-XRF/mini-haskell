@@ -18,13 +18,16 @@
 
 //! error reporting for the mini-Haskell compiler.
 
-use std::mem::ManuallyDrop;
-use crate::scanner::{LexError, Location, Range};
 use crate::lexeme::LexemeType;
+use crate::scanner::{LexError, Location, Range};
 
 /// An exhaustive list of compiler errors.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Debug)]
 pub enum Error {
+    /// An invalid UTF-8 sequence.
+    InvalidUTF8(Vec<u8>),
+    /// A failure during the input process.
+    InputFailure(std::io::Error),
     /// A Unicode character not accepted by the Haskell language.
     InvalidChar(char),
     /// An error during the tokenization process.
@@ -34,72 +37,41 @@ pub enum Error {
 }
 
 /// A diagnostic message (body).
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Debug)]
 pub enum DiagnosticMessage {
     /// Critical errors.
     Error(Error),
 }
 
 /// A diagnostic, with a source location, and an optional source range.
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Debug)]
 pub struct Diagnostic {
     location: Location,
     range: Option<Range>,
     message: DiagnosticMessage,
 }
 
-/// Returned by the `DiagnosticEngine::report`, accepting an optional source range for reporting.
-/// When dropped, the report is submitted to the engine.
-pub struct DiagnosticReporter<'a> {
-    engine: &'a mut DiagnosticEngine,
-    diagnostic: ManuallyDrop<Diagnostic>,
-}
+impl Diagnostic {
+    /// Create a new diagnostics.
+    pub fn new(location: Location, message: DiagnosticMessage) -> Diagnostic {
+        Diagnostic { location, message, range: None }
+    }
 
-impl<'a> DiagnosticReporter<'a> {
     /// Add a source range to the report.
-    pub fn within_range(&mut self, range: Range) {
-        self.diagnostic.range = Some(range)
+    pub fn within_range(self, range: Range) -> Self {
+        Self { range: Some(range), ..self }
     }
 
     /// Add a source range from a `[begin, end)` pair to the report.
-    pub fn within(&mut self, begin: Location, end: Location) {
-        self.diagnostic.range = Some(Range { begin, end })
+    pub fn within(self, begin: Location, end: Location) -> Self {
+        Self { range: Some(Range { begin, end }), ..self }
+    }
+
+    /// Report to the diagnostics engine.
+    pub fn report(self, engine: &mut DiagnosticsEngine) {
+        engine.push(self)
     }
 }
 
-impl<'a> Drop for DiagnosticReporter<'a> {
-    fn drop(&mut self) {
-        self.engine.diagnostics.push(unsafe {
-            ManuallyDrop::take(&mut self.diagnostic)
-        })
-    }
-}
-
-/// Diagnostic engine.
-#[derive(Default)]
-pub struct DiagnosticEngine {
-    diagnostics: Vec<Diagnostic>,
-}
-
-impl DiagnosticEngine {
-    /// Creates a new diagnostic engine.
-    pub fn new() -> Self { Self::default() }
-
-    /// Iterate through the (already submitted) diagnostics.
-    pub fn iter(&self) -> std::slice::Iter<Diagnostic> {
-        self.diagnostics.iter()
-    }
-
-    /// Report a new diagnostic, submitted immediately after the returned
-    /// `DiagnosticReporter` is dropped.
-    pub fn report(&mut self, location: Location, msg: DiagnosticMessage) -> DiagnosticReporter {
-        DiagnosticReporter {
-            engine: self,
-            diagnostic: ManuallyDrop::new(Diagnostic {
-                location,
-                range: None,
-                message: msg,
-            }),
-        }
-    }
-}
+/// The diagnostics engine.
+pub type DiagnosticsEngine = Vec<Diagnostic>;

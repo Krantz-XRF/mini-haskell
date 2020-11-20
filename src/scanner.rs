@@ -18,19 +18,16 @@
 
 //! lexical scanner for mini-haskell.
 
-pub mod whitespace;
 pub mod identifier;
+pub mod whitespace;
 
 use crate::utils::*;
-use crate::buffer::{Buffer, Stream};
-use crate::char::{CharPredicate, Maybe, Unicode};
+use crate::input::Input;
 use crate::lexeme::LexemeType;
+use crate::char::{CharPredicate, Maybe, Unicode, Stream};
 use crate::error::{
-    DiagnosticEngine,
-    DiagnosticReporter,
-    DiagnosticMessage,
-    DiagnosticMessage::Error,
-    Error::InvalidChar,
+    Diagnostic, DiagnosticsEngine, DiagnosticMessage::Error,
+    Error::{InvalidUTF8, InputFailure, InvalidChar},
 };
 
 /// Source location.
@@ -84,19 +81,24 @@ pub struct Range {
 }
 
 /// Scanner with a back buffer.
-pub struct Scanner<'a> {
-    buffer: &'a mut dyn Buffer,
+pub struct Scanner<I> {
+    input: Input<I>,
     location: Location,
-    diagnostics: &'a mut DiagnosticEngine,
+    diagnostics: DiagnosticsEngine,
 }
 
-impl<'a> Stream for Scanner<'a> {
+impl<I: std::io::Read> Stream for Scanner<I> {
     fn peek(&mut self) -> Option<char> {
-        self.buffer.peek()
+        match self.input.clone().next(|s| Diagnostic::new(
+            self.location, Error(InvalidUTF8(Vec::from(s))))
+            .report(&mut self.diagnostics)) {
+            Ok((c, _)) => Some(c),
+            Err(_) => None,
+        }
     }
 
     fn next(&mut self) -> Option<char> {
-        let res = self.buffer.next();
+        let res = self.next_input();
         if let Some(x) = res {
             self.location.step();
             // ANY        -> graphic | whitechar
@@ -111,10 +113,61 @@ impl<'a> Stream for Scanner<'a> {
                      r"!#$%&*+./<=>?@\^|-~:",
                      Unicode::Symbol, Unicode::Punct,
                      Unicode::Digit, "(),;[]`{}").check(x) {
-                self.report(Error(InvalidChar(x)));
+                Diagnostic::new(self.location, Error(InvalidChar(x)))
+                    .report(&mut self.diagnostics);
             }
         }
         res
+    }
+}
+
+impl<I: std::io::Read> Scanner<I> {
+    fn next_input(&mut self) -> Option<char> {
+        let diagnostics = &mut self.diagnostics;
+        let location = self.location;
+        match self.input.clone().next(move |s| Diagnostic::new(
+            location, Error(InvalidUTF8(Vec::from(s))))
+            .report(diagnostics))
+            .map_err(Into::into) {
+            Ok((c, rest)) => {
+                self.input = rest;
+                Some(c)
+            }
+            Err(e) => {
+                if let Some(e) = e {
+                    Diagnostic::new(self.location, Error(InputFailure(e)))
+                        .report(&mut self.diagnostics);
+                }
+                None
+            }
+        }
+    }
+
+    /// Pop many characters until the predicate fails.
+    pub fn span<T>(&mut self, mut f: impl FnMut(char) -> bool,
+                   init: T, mut join: impl FnMut(&mut T, char)) -> T {
+        let mut res = init;
+        while let Some(x) = self.peek() {
+            if !f(x) { break; }
+            join(&mut res, x);
+            self.next();
+        }
+        res
+    }
+
+    /// Pop many characters until the predicate fails, collect them into a `Vec`.
+    pub fn span_collect(&mut self, f: impl FnMut(char) -> bool) -> Vec<char> {
+        self.span(f, Vec::new(), Vec::push)
+    }
+
+    /// Pop many characters until the predicate fails, ignore the characters.
+    pub fn span_(&mut self, f: impl FnMut(char) -> bool) {
+        self.span(f, (), |_, _| ())
+    }
+
+    /// Fail with `t` as the expected token type.
+    pub fn expected<T>(&mut self, t: LexemeType) -> Result<T> {
+        Err(LexError { expected: t, unexpected: self.peek() })
     }
 }
 
@@ -130,32 +183,33 @@ pub struct LexError {
 /// Lexer result.
 pub type Result<T> = std::result::Result<T, LexError>;
 
-impl<'a> Scanner<'a> {
+impl<I> Scanner<I> {
     /// Create a new scanner from the back buffer.
-    pub fn new(buffer: &'a mut impl Buffer, diagnostics: &'a mut DiagnosticEngine) -> Self {
-        Scanner { buffer, location: Location::new(), diagnostics }
+    pub fn new(input: I) -> Self {
+        Scanner {
+            input: Input::new(input),
+            location: Location::new(),
+            diagnostics: DiagnosticsEngine::new(),
+        }
     }
 
     /// Set an anchor for possible revert in future. Use `Result` for error indication.
-    pub fn anchored<R: Maybe>(&mut self, f: impl FnOnce(&mut Scanner) -> R) -> R {
+    pub fn anchored<R: Maybe>(&mut self, f: impl FnOnce(&mut Scanner<I>) -> R) -> R {
+        let old_input = self.input.clone();
         let old_location = self.location;
-        let mut anchored = self.buffer.anchor();
-        let mut scanner = Scanner {
-            location: self.location,
-            buffer: &mut anchored,
-            diagnostics: &mut self.diagnostics,
-        };
-        let res = f(&mut scanner);
+        let old_diagnostics_count = self.diagnostics.len();
+        let res = f(self);
         if res.is_nothing() {
-            anchored.revert();
+            self.input = old_input;
             self.location = old_location;
+            self.diagnostics.truncate(old_diagnostics_count);
         }
         res
     }
 
     /// Match many of this rule.
     pub fn many<T, U>(
-        &mut self, f: &mut impl FnMut(&mut Scanner) -> Result<T>,
+        &mut self, f: &mut impl FnMut(&mut Scanner<I>) -> Result<T>,
         init: U, join: &mut impl FnMut(&mut U, T)) -> Result<U> {
         let mut res = init;
         while let Ok(x) = f(self) {
@@ -165,30 +219,20 @@ impl<'a> Scanner<'a> {
     }
 
     /// Match many of this rule, ignore the results.
-    pub fn many_<T>(&mut self, f: &mut impl FnMut(&mut Scanner) -> Result<T>) -> Result<()> {
+    pub fn many_<T>(&mut self, f: &mut impl FnMut(&mut Scanner<I>) -> Result<T>) -> Result<()> {
         self.many(f, (), &mut |_, _| ())
     }
 
     /// Match many of this rule.
     pub fn some<T, U>(
-        &mut self, f: &mut impl FnMut(&mut Scanner) -> Result<T>,
+        &mut self, f: &mut impl FnMut(&mut Scanner<I>) -> Result<T>,
         mut init: U, join: &mut impl FnMut(&mut U, T)) -> Result<U> {
         join(&mut init, f(self)?);
         self.many(f, init, join)
     }
 
     /// Match many of this rule, ignore the results.
-    pub fn some_<T>(&mut self, f: &mut impl FnMut(&mut Scanner) -> Result<T>) -> Result<()> {
+    pub fn some_<T>(&mut self, f: &mut impl FnMut(&mut Scanner<I>) -> Result<T>) -> Result<()> {
         self.some(f, (), &mut |_, _| ())
-    }
-
-    /// Emit a diagnostic.
-    pub fn report(&mut self, msg: DiagnosticMessage) -> DiagnosticReporter {
-        self.diagnostics.report(self.location, msg)
-    }
-
-    /// Fail with `t` as the expected token type.
-    pub fn expected<T>(&mut self, t: LexemeType) -> Result<T> {
-        Err(LexError { expected: t, unexpected: self.peek() })
     }
 }
