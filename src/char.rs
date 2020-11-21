@@ -145,7 +145,7 @@ impl CharPredicate for str {
     }
 }
 
-impl<'a> CharPredicate for &'a str {
+impl<'a, P: CharPredicate + ?Sized> CharPredicate for &'a P {
     fn check(&self, x: char) -> bool {
         (*self).check(x)
     }
@@ -260,14 +260,14 @@ pub trait Stream {
 }
 
 macro_rules! alt {
-    ($lexer: expr) => { scanner_trace!("alt: failed"); };
+    ($lexer: expr) => { trace!(scanner, "alt: failed"); };
     ($lexer: expr, $f: expr $(, $($rest: tt)+)?) => {
-        scanner_trace!("alt: try parsing {}", stringify!($f));
+        trace!(scanner, "alt: try parsing {}", stringify!($f));
         if let Some(res) = $crate::char::Maybe::into_optional($lexer.anchored($f)) {
-            scanner_trace!("ok: {}", stringify!($f));
+            trace!(scanner, "ok: {}", stringify!($f));
             return $crate::char::Maybe::just(res);
         }
-        scanner_trace!("failed: {}", stringify!($f));
+        trace!(scanner, "failed: {}", stringify!($f));
         alt!($lexer $(, $($rest)+)?);
     }
 }
@@ -333,23 +333,23 @@ macro_rules! check_impl {
     (once, $lexer: expr, $x: ident, $predicate: expr) => {
         let $x = $lexer.next()?;
         if !$predicate.check($x) {
-            scanner_trace!("analyse: checking {} ... failed", stringify!($predicate));
+            trace!(scanner, "analyse: checking {} ... failed", stringify!($predicate));
             return None;
         }
-        scanner_trace!("analyse: checking {} ... ok", stringify!($predicate));
+        trace!(scanner, "analyse: checking {} ... ok", stringify!($predicate));
         let $x = $x; // retain unused variable warnings
     };
     (many, $lexer: expr, $x: ident, $predicate: expr) => {
         let $x = $lexer.span_collect(|$x| $predicate.check($x));
-        scanner_trace!("analyse: checking *{} ... ok", stringify!($predicate));
+        trace!(scanner, "analyse: checking *{} ... ok", stringify!($predicate));
     };
     (some, $lexer: expr, $x: ident, $predicate: expr) => {
         let $x = $lexer.span_collect(|$x| $predicate.check($x));
         if $x.len() == 0 {
-            scanner_trace!("analyse: checking {} ... failed", stringify!($predicate));
+            trace!(scanner, "analyse: checking {} ... failed", stringify!($predicate));
             return None;
         }
-        scanner_trace!("analyse: checking +{} ... ok", stringify!($predicate));
+        trace!(scanner, "analyse: checking +{} ... ok", stringify!($predicate));
         let $x = $x; // retain unused variable warnings
     };
 }

@@ -65,14 +65,10 @@ pub fn setup_logger() {
         .init()
 }
 
+
+macro_rules! trace {
+    (scanner, $($params: tt)+) => {
 #[cfg(feature = "scanner_trace")]
-macro_rules! scanner_trace {
-    ($($params: tt)+) => {
         log::trace!(target: "scanner", $($params)+);
     }
-}
-
-#[cfg(not(feature = "scanner_trace"))]
-macro_rules! scanner_trace {
-    ($($params: tt)*) => {};
 }
