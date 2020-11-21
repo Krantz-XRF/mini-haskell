@@ -52,23 +52,34 @@ macro_rules! method {
     };
 }
 
-#[cfg(test)]
-pub fn setup_logger() {
-    env_logger::Builder::new()
-        .format_level(true)
-        .format_indent(Some(4))
-        .format_timestamp(None)
-        .format_module_path(true)
-        .filter_level(log::LevelFilter::Trace)
-        .target(env_logger::Target::Stdout)
-        .write_style(env_logger::WriteStyle::Always)
-        .init()
+#[cfg(all(test, feature = "log"))]
+mod log_init {
+    use std::sync::Once;
+
+    static LOG_INIT: Once = Once::new();
+
+    pub fn setup_logger() {
+        LOG_INIT.call_once(|| env_logger::Builder::new()
+            .format_level(true)
+            .format_indent(Some(4))
+            .format_timestamp(None)
+            .format_module_path(true)
+            .filter_level(log::LevelFilter::Trace)
+            .target(env_logger::Target::Stdout)
+            .write_style(env_logger::WriteStyle::Always)
+            .init())
+    }
 }
 
+#[cfg(all(test, feature = "log"))]
+pub use log_init::setup_logger;
+
+#[cfg(all(test, not(feature = "log")))]
+pub fn setup_logger() {}
 
 macro_rules! trace {
     (scanner, $($params: tt)+) => {
-#[cfg(feature = "scanner_trace")]
+        #[cfg(feature = "scanner_trace")]
         log::trace!(target: "scanner", $($params)+);
     }
 }
