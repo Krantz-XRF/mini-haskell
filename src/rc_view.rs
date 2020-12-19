@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! View into an `Rc`, focus on a part of the whole data.
+//! View into an [`Rc`], focus on a part of the whole data.
 
 use std::ops::Deref;
 use std::ptr::NonNull;
@@ -24,7 +24,7 @@ use std::rc::Rc;
 use std::cell::UnsafeCell;
 use std::fmt::Formatter;
 
-/// A view into an `Rc`.
+/// A view into an [`Rc`].
 pub struct RcView<T: ?Sized, U: ?Sized> {
     #[allow(dead_code)]
     whole: Rc<T>,
@@ -49,18 +49,18 @@ impl<T: ?Sized, U: std::fmt::Display + ?Sized> std::fmt::Display for RcView<T, U
 }
 
 impl<T: ?Sized, U: ?Sized> RcView<T, U> {
-    /// Create a view into an `Rc`.
+    /// Create a view into an [`Rc`].
     pub fn new(whole: Rc<T>, to_focus: impl FnOnce(&T) -> &U) -> Self {
         let focus = NonNull::from(to_focus(&whole));
         RcView { whole, focus }
     }
 
-    /// Create a view into an `Rc`.
+    /// Create a view into an [`Rc`].
     ///
     /// # Safety
     ///
     /// Call on this unsafe functions should take special care so that the provided
-    /// reference `focus` is indeed a view into the related `Rc`.
+    /// reference `focus` is indeed a view into the related [`Rc`].
     pub unsafe fn wrap(whole: Rc<T>, focus: &U) -> Self {
         RcView {
             whole,
@@ -76,22 +76,22 @@ impl<T: ?Sized, U: ?Sized> RcView<T, U> {
         }
     }
 
-    /// Derive an `RcView` to a new focus from this view.
+    /// Derive an [`RcView`] to a new focus from this view.
     ///
     /// # Safety
     ///
     /// Call on this unsafe functions should take special care so that the provided
-    /// reference `focus` is indeed a view into the related `Rc`.
+    /// reference `focus` is indeed a view into the related [`Rc`].
     pub unsafe fn derive<V: ?Sized>(&self, focus: &V) -> RcView<T, V> {
         RcView::<T, V>::wrap(self.whole.clone(), focus)
     }
 
-    /// Derive an `RcView` to a new focus from this view. Consumes this view.
+    /// Derive an [`RcView`] to a new focus from this view. Consumes this view.
     ///
     /// # Safety
     ///
     /// Call on this unsafe functions should take special care so that the provided
-    /// reference `focus` is indeed a view into the related `Rc`.
+    /// reference `focus` is indeed a view into the related [`Rc`].
     pub unsafe fn derive_take<V: ?Sized>(self, focus: &V) -> RcView<T, V> {
         RcView::<T, V>::wrap(self.whole, focus)
     }

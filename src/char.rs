@@ -108,7 +108,7 @@ impl CharPredicate for char {
     }
 }
 
-/// A character range (half open), used as a candidate for `CharPredicate`.
+/// A character range (half open), used as a candidate for [`CharPredicate`].
 ///
 /// ```
 /// # use mini_haskell::char::CharPredicate;
@@ -117,7 +117,7 @@ impl CharPredicate for char {
 /// ```
 pub type CharRange = std::ops::Range<char>;
 
-/// A character range (closed), used as a candidate for `CharPredicate`.
+/// A character range (closed), used as a candidate for [`CharPredicate`].
 ///
 /// ```
 /// # use mini_haskell::char::CharPredicate;
@@ -151,7 +151,7 @@ impl<'a, P: CharPredicate + ?Sized> CharPredicate for &'a P {
     }
 }
 
-/// Negation of a character predicate.
+/// Negation of a [`CharPredicate`].
 #[repr(transparent)]
 pub struct NotPred<P: CharPredicate + Sized>(pub P);
 
@@ -169,7 +169,7 @@ macro_rules! not {
     };
 }
 
-/// Logical or of 2 character predicates.
+/// Logical or of 2 [`CharPredicate`]s.
 pub struct OrPred<P: CharPredicate, Q: CharPredicate>(pub P, pub Q);
 
 impl<P: CharPredicate, Q: CharPredicate> CharPredicate for OrPred<P, Q> {
@@ -187,7 +187,7 @@ macro_rules! any {
     }
 }
 
-/// Logical and of 2 character predicates.
+/// Logical and of 2 [`CharPredicate`]s.
 pub struct AndPred<P: CharPredicate, Q: CharPredicate>(pub P, pub Q);
 
 impl<P: CharPredicate, Q: CharPredicate> CharPredicate for AndPred<P, Q> {
@@ -244,11 +244,11 @@ pub trait Stream {
         }
         res
     }
-    /// Pop many characters until the predicate fails, collect them into a `Vec`.
+    /// Pop many characters until the predicate fails, collect them into a [`Vec`].
     fn span_collect(&mut self, f: impl FnMut(char) -> bool) -> Vec<char> {
         self.span(f, Vec::new(), Vec::push)
     }
-    /// Pop many characters until the predicate fails, collect them into a `String`.
+    /// Pop many characters until the predicate fails, collect them into a [`String`].
     fn span_collect_string(&mut self, f: impl FnMut(char) -> bool) -> String {
         self.span(f, String::new(), String::push)
     }

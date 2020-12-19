@@ -23,7 +23,7 @@
 pub enum Void {}
 
 impl Void {
-    /// Consumes a `Void` value, serves as an unreachable.
+    /// Consumes a [`Void`] value, serves as an unreachable.
     pub fn absurd(self) -> ! { match self {} }
 }
 
@@ -39,7 +39,7 @@ pub enum Result3<T, E, M> {
 }
 
 /// Named after `Maybe`, `Just`, and `Nothing` from Haskell.
-/// Use this for success/failure semantics, since `Either` is used to model the control flow.
+/// Use this for success/failure semantics, since [`Either`] is used to model the control flow.
 pub trait Maybe {
     /// The success type in a `Just`.
     type Just;
@@ -79,7 +79,7 @@ impl<T, E, M> Maybe for Result3<T, E, M> {
     }
 }
 
-/// The `std::ops::Try` trait is not yet stable. We roll up our own for now.
+/// The [`std::ops::Try`] trait is not yet stable. We roll up our own for now.
 /// It is named after `Either`, `Left`, and `Right` from Haskell.
 pub trait Either {
     /// The type to propagate in a `Left`.
@@ -87,14 +87,17 @@ pub trait Either {
     /// The type to continue with in a `Right`.
     type Right;
     /// Construct a `Left`:
-    /// - `None` for `Optional`
-    /// - `Err` for `Result`
+    /// - [`None`] for [`Optional`]
+    /// - [`Err`] for [`Result`]
     fn left(x: Self::Left) -> Self;
     /// Construct a `Right`:
-    /// - `Some` for `Optional`
-    /// - `Ok` for `Result`
+    /// - [`Some`] for [`Optional`]
+    /// - [`Ok`] for [`Result`]
     fn right(x: Self::Right) -> Self;
-    /// Consumes the value and makes a `Result`.
+    /// Consumes the value and makes a [`Result`].
+    ///
+    /// Note that by design (to follow the convention in Haskell), the
+    /// [`Err`] is for `Left` and the [`Ok`] is for `Right`.
     fn into_result(self) -> Result<Self::Right, Self::Left>;
 }
 
@@ -170,7 +173,7 @@ pub const fn round_to(x: usize, n: usize) -> usize {
     (x + n - 1) / n * n
 }
 
-/// Lorem ipsum.
+/// Lorem ipsum. For test only.
 #[cfg(test)]
 pub const LIPSUM: &str =
     "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum facilisis turpis ex, eu \
