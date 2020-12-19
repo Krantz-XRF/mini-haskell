@@ -34,7 +34,7 @@ impl<I: std::io::Read> Scanner<I> {
     fn whitestuff(&mut self) -> Result<()> {
         // whitestuff -> whitechar | comment | ncomment
         alt!(self, method!(whitechar), method!(comment), method!(ncomment));
-        self.expected(Whitespace)
+        Self::keep_trying()
     }
 
     fn whitechar(&mut self) -> Option<()> {
@@ -117,6 +117,7 @@ mod tests {
     use crate::char::Stream;
     use crate::scanner::Scanner;
     use crate::utils::setup_logger;
+    use crate::utils::Result3::Success;
 
     fn test_scanner_on<U: Eq + std::fmt::Debug>(
         input: &str,
@@ -131,7 +132,7 @@ mod tests {
     fn test_whitespace() {
         setup_logger();
         fn test(input: &str) {
-            test_scanner_on(input, method!(whitestuff), Ok(()), None);
+            test_scanner_on(input, method!(whitestuff), Success(()), None);
         }
         test("\r\n");
         test("\r");

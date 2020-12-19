@@ -19,7 +19,65 @@
 //! useful common utilities.
 
 /// The uninhabited type `Void`.
+#[derive(Copy, Clone)]
 pub enum Void {}
+
+impl Void {
+    /// Consumes a `Void` value, serves as an unreachable.
+    pub fn absurd(self) -> ! { match self {} }
+}
+
+/// Result type for parsing.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Result3<T, E, M> {
+    /// succeed with a result
+    Success(T),
+    /// fail with an error, no recovery
+    FailFast(E),
+    /// fail without error, allowing future recovery
+    RetryLater(M),
+}
+
+/// Named after `Maybe`, `Just`, and `Nothing` from Haskell.
+/// Use this for success/failure semantics, since `Either` is used to model the control flow.
+pub trait Maybe {
+    /// The success type in a `Just`.
+    type Just;
+    /// Construct a success.
+    fn just(x: Self::Just) -> Self;
+    /// Check whether it is a success.
+    fn is_just(&self) -> bool;
+    /// Check whether it is a failure.
+    fn is_nothing(&self) -> bool { !self.is_just() }
+    /// Convert into an `Optional`.
+    fn into_optional(self) -> Option<Self::Just>;
+}
+
+impl<T> Maybe for Option<T> {
+    type Just = T;
+    fn just(x: T) -> Self { Some(x) }
+    fn is_just(&self) -> bool { self.is_some() }
+    fn into_optional(self) -> Option<Self::Just> { self }
+}
+
+impl<T, E> Maybe for Result<T, E> {
+    type Just = T;
+    fn just(x: T) -> Self { Ok(x) }
+    fn is_just(&self) -> bool { self.is_ok() }
+    fn into_optional(self) -> Option<T> { self.ok() }
+}
+
+impl<T, E, M> Maybe for Result3<T, E, M> {
+    type Just = T;
+    fn just(x: T) -> Self { Self::Success(x) }
+    fn is_just(&self) -> bool { matches!(self, Self::Success(_)) }
+    fn into_optional(self) -> Option<Self::Just> {
+        match self {
+            Self::Success(x) => Some(x),
+            _ => None,
+        }
+    }
+}
 
 /// The `std::ops::Try` trait is not yet stable. We roll up our own for now.
 /// It is named after `Either`, `Left`, and `Right` from Haskell.
@@ -38,6 +96,15 @@ pub trait Either {
     fn right(x: Self::Right) -> Self;
     /// Consumes the value and makes a `Result`.
     fn into_result(self) -> Result<Self::Right, Self::Left>;
+}
+
+macro_rules! unwrap {
+    ($e: expr) => {
+        match $crate::utils::Either::into_result($e) {
+            Ok(x) => x,
+            Err(e) => return $crate::utils::Either::left(e),
+        }
+    }
 }
 
 impl<T> Either for Option<T> {
@@ -63,11 +130,29 @@ impl<T, E> Either for Result<T, E> {
     fn into_result(self) -> Result<T, E> { self }
 }
 
-macro_rules! unwrap {
-    ($e: expr) => {
-        match $crate::utils::Either::into_result($e) {
-            Ok(x) => x,
-            Err(e) => return $crate::utils::Either::left(e),
+impl<T, E> From<T> for Result3<T, E, Void> {
+    fn from(x: T) -> Self { Self::Success(x) }
+}
+
+impl<T, E, M> Either for Result3<T, E, M> {
+    type Left = M;
+    type Right = Result3<T, E, Void>;
+
+    fn left(m: M) -> Self { Self::RetryLater(m) }
+
+    fn right(x: Result3<T, E, Void>) -> Self {
+        match x {
+            Result3::Success(x) => Self::Success(x),
+            Result3::FailFast(e) => Self::FailFast(e),
+            Result3::RetryLater(m) => m.absurd(),
+        }
+    }
+
+    fn into_result(self) -> std::result::Result<Result3<T, E, Void>, M> {
+        match self {
+            Self::Success(x) => Ok(Result3::Success(x)),
+            Self::FailFast(e) => Ok(Result3::FailFast(e)),
+            Self::RetryLater(m) => Err(m),
         }
     }
 }

@@ -22,7 +22,6 @@ use super::{Scanner, Result};
 use crate::char::{CharPredicate, Stream, Unicode, Ascii};
 use crate::lexeme::{RId, ROp, Lexeme, QName, ModuleId};
 use crate::lexeme::Lexeme::{ReservedId, ReservedOp, Identifier, Operator, QIdentifier, QOperator};
-use crate::lexeme::LexemeType as T;
 
 alias! {
     /// small    -> ascSmall | uniSmall | _
@@ -58,7 +57,7 @@ impl<I: std::io::Read> Scanner<I> {
                    method!(con_sym_or_reserved_op),
                    method!(var_sym_or_reserved_op),
                    method!(var_id_or_reserved_id));
-        todo!()
+        Result::RetryLater(())
     }
 
     fn con_id(&mut self) -> Option<String> {
@@ -138,28 +137,26 @@ impl<I: std::io::Read> Scanner<I> {
         })
     }
 
-    fn q_con_id(&mut self) -> Result<Lexeme> {
-        let err = self.err_expected(T::QIdentifier);
-        let init = QName::new(self.con_id().ok_or(err)?);
+    fn q_con_id(&mut self) -> Option<Lexeme> {
+        let init = QName::new(self.con_id()?);
         Option::map(
             self.many(|scanner| {
                 analyse!(scanner, '.');
                 scanner.con_id()
             }, init, QName::append),
             QIdentifier,
-        ).ok_or(err)
+        )
     }
 
-    fn q_var_id_or_q_sym(&mut self) -> Result<Lexeme> {
-        let err = self.err_expected(T::QIdentifier);
-        let module = self.mod_id().ok_or(err)?;
-        Ok(match simple_alt!(self,
+    fn q_var_id_or_q_sym(&mut self) -> Option<Lexeme> {
+        let module = self.mod_id()?;
+        Some(match simple_alt!(self,
             method!(var_id_or_reserved_id),
             method!(var_sym_or_reserved_op),
-            method!(con_sym_or_reserved_op)).ok_or(err)? {
+            method!(con_sym_or_reserved_op))? {
             Identifier(name) => QIdentifier(QName { module, name }),
             Operator(name) => QOperator(QName { module, name }),
-            _ => return Err(err),
+            _ => return None,
         })
     }
 }

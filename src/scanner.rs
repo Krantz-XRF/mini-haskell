@@ -29,6 +29,7 @@ use crate::error::{
     Diagnostic, DiagnosticsEngine, DiagnosticMessage::Error,
     Error::{InvalidUTF8, InputFailure, InvalidChar},
 };
+use crate::utils::Result3::{FailFast, RetryLater};
 
 /// Source location.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -153,10 +154,13 @@ impl<I: std::io::Read> Scanner<I> {
         }
     }
 
-    /// Fail with `t` as the expected lexeme type.
+    /// Fail fast with `t` as the expected lexeme type.
     pub fn expected<T>(&mut self, t: LexemeType) -> Result<T> {
-        Err(self.err_expected(t))
+        FailFast(self.err_expected(t))
     }
+
+    /// Fail for future recovery from `alt!`.
+    pub fn keep_trying<T>() -> Result<T> { RetryLater(()) }
 
     /// Create a `LexError` with the expected lexeme type.
     pub fn err_expected(&mut self, t: LexemeType) -> LexError {
@@ -174,7 +178,7 @@ pub struct LexError {
 }
 
 /// Lexer result.
-pub type Result<T> = std::result::Result<T, LexError>;
+pub type Result<T> = crate::utils::Result3<T, LexError, ()>;
 
 impl<I> Scanner<I> {
     /// Create a new scanner from the back buffer.
@@ -214,9 +218,11 @@ impl<I> Scanner<I> {
     }
 
     /// Match many of this rule, ignore the results.
-    pub fn many_<ET: Either<Left=E>, ER: Either<Left=E, Right=()>, E>(
-        &mut self, f: impl FnMut(&mut Scanner<I>) -> ET) -> ER {
-        self.many(f, (), |_, _| ())
+    pub fn many_<ET: Either<Left=E>, ER: Either<Left=E>, E>(
+        &mut self, f: impl FnMut(&mut Scanner<I>) -> ET) -> ER
+        where ER::Right: From<()> {
+        let unit: ER::Right = From::from(());
+        self.many(f, unit, |_, _| ())
     }
 
     /// Match many of this rule.
@@ -228,9 +234,11 @@ impl<I> Scanner<I> {
     }
 
     /// Match many of this rule, ignore the results.
-    pub fn some_<ET: Either<Left=E>, ER: Either<Left=E, Right=()>, E>(
-        &mut self, f: impl FnMut(&mut Scanner<I>) -> ET) -> ER {
-        self.some(f, (), |_, _| ())
+    pub fn some_<ET: Either<Left=E>, ER: Either<Left=E>, E>(
+        &mut self, f: impl FnMut(&mut Scanner<I>) -> ET) -> ER
+        where ER::Right: From<()> {
+        let unit: ER::Right = From::from(());
+        self.some(f, unit, |_, _| ())
     }
 
     /// Match many of this rule separated by some other rule.
@@ -247,11 +255,16 @@ impl<I> Scanner<I> {
     }
 
     /// Match many of this rule separated by some other rule, ignore the results.
-    pub fn sep_by_<ET: Either<Left=E>, EU: Either<Left=E, Right=()>, ER: Either<Left=E>, E>(
+    pub fn sep_by_<ET, EU, ER, E>(
         &mut self,
         f: impl FnMut(&mut Scanner<I>) -> ET,
-        g: impl FnMut(&mut Scanner<I>) -> ER) -> EU {
-        self.sep_by(f, g, (), |_, _| ())
+        g: impl FnMut(&mut Scanner<I>) -> ER) -> EU
+        where ET: Either<Left=E>,
+              ER: Either<Left=E>,
+              EU: Either<Left=E>,
+              EU::Right: From<()> {
+        let unit: EU::Right = From::from(());
+        self.sep_by(f, g, unit, |_, _| ())
     }
 
     /// Match many of this rule ended by some other rule.

@@ -262,9 +262,15 @@ macro_rules! alt {
     ($lexer: expr) => { trace!(scanner, "alt: failed"); };
     ($lexer: expr, $f: expr $(, $($rest: tt)+)?) => {
         trace!(scanner, "alt: try parsing {}", stringify!($f));
-        if let Ok(res) = $crate::utils::Either::into_result($lexer.anchored($f)) {
-            trace!(scanner, "ok: {}", stringify!($f));
-            return $crate::utils::Either::right(res);
+        {
+            let res = $lexer.anchored($f);
+            if $crate::utils::Maybe::is_just(&res) {
+                trace!(scanner, "ok: {}", stringify!($f));
+            }
+            if let Ok(res) = $crate::utils::Either::into_result(res) {
+                return $crate::utils::Either::right(
+                    std::convert::From::from(res));
+            }
         }
         trace!(scanner, "failed: {}", stringify!($f));
         alt!($lexer $(, $($rest)+)?);
@@ -284,7 +290,7 @@ macro_rules! choice {
     ($res: expr; $($rest: tt)+) => {
         |scanner| {
             analyse!(scanner, $($rest)+);
-            $crate::utils::Either::right($res)
+            $crate::utils::Maybe::just($res)
         }
     };
     ($($rest: tt)+) => { choice!((); $($rest)+) }
