@@ -28,7 +28,7 @@ impl<I: std::io::Read> Scanner<I> {
     /// Haskell 2010 Report (2.2.whitespace)
     pub fn whitespace(&mut self) -> Result<()> {
         // whitespace -> whitestuff {whitestuff}
-        self.some_(&mut method!(whitestuff))
+        self.some_(method!(whitestuff))
     }
 
     fn whitestuff(&mut self) -> Result<()> {

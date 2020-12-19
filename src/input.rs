@@ -244,6 +244,36 @@ impl<I: std::io::Read> Input<I> {
         }
     }
 
+    /// Match on the input, succeed if the input matches the given string.
+    pub fn r#match(mut self, s: &str, mut report: impl FnMut(&[u8])) -> Option<Self> {
+        let mut s = s.as_bytes();
+        loop {
+            if s.is_empty() { return Some(self); }
+            self.input.prepare();
+            let head = unsafe { &mut *self.input.0.get() };
+            match head {
+                InputSegment::EndOfFile { .. } => break None,
+                InputSegment::Cons { data, next } => {
+                    let cs = data[self.index..].as_bytes();
+                    let n = std::cmp::min(s.len(), cs.len());
+                    if s[..n] != cs[..n] { break None; }
+                    self.index += n;
+                    if cs[n..].is_empty() { self = Self { input: next.clone(), index: 0 }; }
+                    s = &s[n..];
+                }
+                InputSegment::Invalid { data, .. } => {
+                    report(data);
+                    let next = match std::mem::take(head) {
+                        InputSegment::Invalid { next, .. } => next,
+                        _ => unreachable!("Already pattern matched."),
+                    };
+                    *head = Rc::try_unwrap(next.0).ok().unwrap().into_inner();
+                }
+                _ => unreachable!("RawInput::prepare shall not return a Delayed."),
+            }
+        }
+    }
+
     /// Dump out the content of this input.
     pub fn dump(&self) {
         println!("Input[index = {}]:", self.index);

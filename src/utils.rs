@@ -18,6 +18,9 @@
 
 //! useful common utilities.
 
+/// The uninhabited type `Void`.
+pub enum Void {}
+
 /// Round `x` to multiples of `n`.
 ///
 /// ```
@@ -32,6 +35,7 @@ pub const fn round_to(x: usize, n: usize) -> usize {
 }
 
 /// Lorem ipsum.
+#[cfg(test)]
 pub const LIPSUM: &str =
     "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum facilisis turpis ex, eu \
     dignissim purus varius non. Integer elit enim, rhoncus a lacinia sed, fermentum eget mauris. \
@@ -50,6 +54,45 @@ macro_rules! method {
     ($f: ident) => {
         |x| x.$f()
     };
+}
+
+macro_rules! lexemes {
+    { $($ps: tt)* } => {
+        lexeme_types! { $($ps)* }
+        lexeme_concrete! { $($ps)* }
+    }
+}
+
+macro_rules! lexeme_types {
+    { $( $(#[$meta: meta])* $l: ident $(($($t: ty),*))? ),* $(,)? } => {
+        /// Lexeme type labels.
+        #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+        pub enum LexemeType {
+            $( $(#[$meta])* $l ),*
+        }
+    }
+}
+
+macro_rules! wildcard_from {
+    ($($t: tt)*) => { .. }
+}
+
+macro_rules! lexeme_concrete {
+    { $( $(#[$meta: meta])* $l: ident $(($($t: ty),*))? ),* $(,)? } => {
+        /// Concrete lexeme type.
+        #[derive(Clone, Eq, PartialEq, Debug)]
+        pub enum Lexeme {
+            $( $(#[$meta])* $l $(($($t),*))? ),*
+        }
+        impl Lexeme {
+            /// Get lexeme type from a concrete lexeme.
+            pub fn get_type(&self) -> LexemeType {
+                match self {
+                    $( Lexeme::$l $((wildcard_from!($($t),*)))? => LexemeType::$l ),*
+                }
+            }
+        }
+    }
 }
 
 #[cfg(all(test, feature = "log"))]

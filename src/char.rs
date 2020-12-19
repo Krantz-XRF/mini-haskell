@@ -19,6 +19,7 @@
 //! character related utilities.
 
 use unic_ucd_category::GeneralCategory;
+use crate::utils::Void;
 
 /// ASCII character categories.
 pub enum Ascii {
@@ -205,49 +206,66 @@ macro_rules! all {
     }
 }
 
-/// Common interface for a `Option` like structure.
-/// It is strictly weaker than the not yet stable `std::ops::Try` trait.
-/// It is named after `Maybe`, `Just`, and `Nothing` from Haskell.
-pub trait Maybe {
-    /// The content type in a `Just`.
-    type Content;
-    /// Construct a `Just`:
+macro_rules! alias {
+    { $( $($(#[$meta: meta])* pub)? $p: ident = $e: expr);* $(;)? } => {
+        $(
+            $($(#[$meta])* pub)?
+            struct $p;
+            impl CharPredicate for $p {
+                fn check(&self, x: char) -> bool { $e.check(x) }
+            }
+        )+
+    }
+}
+
+/// The `std::ops::Try` trait is not yet stable. We roll up our own for now.
+/// It is named after `Either`, `Left`, and `Right` from Haskell.
+pub trait Either {
+    /// The type to propagate in a `Left`.
+    type Left;
+    /// The type to continue with in a `Right`.
+    type Right;
+    /// Construct a `Left`:
+    /// - `None` for `Optional`
+    /// - `Err` for `Result`
+    fn left(x: Self::Left) -> Self;
+    /// Construct a `Right`:
     /// - `Some` for `Optional`
     /// - `Ok` for `Result`
-    fn just(x: Self::Content) -> Self;
-    /// Consumes the value and makes an `Optional`.
-    fn into_optional(self) -> Option<Self::Content>;
-    /// Is `self` a failure?
-    fn is_nothing(&self) -> bool;
-    /// Is `self` a success?
-    fn is_just(&self) -> bool {
-        !self.is_nothing()
+    fn right(x: Self::Right) -> Self;
+    /// Consumes the value and makes a `Result`.
+    fn into_result(self) -> Result<Self::Right, Self::Left>;
+}
+
+impl<T> Either for Option<T> {
+    type Left = Option<Void>;
+    type Right = T;
+
+    fn left(_: Option<Void>) -> Self { None }
+    fn right(x: T) -> Self { Some(x) }
+    fn into_result(self) -> Result<T, Option<Void>> {
+        match self {
+            Some(x) => Ok(x),
+            None => Err(None),
+        }
     }
 }
 
-impl<T> Maybe for Option<T> {
-    type Content = T;
-    fn just(x: T) -> Self {
-        Some(x)
-    }
-    fn into_optional(self) -> Option<Self::Content> {
-        self
-    }
-    fn is_nothing(&self) -> bool {
-        self.is_none()
-    }
+impl<T, E> Either for Result<T, E> {
+    type Left = E;
+    type Right = T;
+
+    fn left(x: E) -> Self { Err(x) }
+    fn right(x: T) -> Self { Ok(x) }
+    fn into_result(self) -> Result<T, E> { self }
 }
 
-impl<T, E> Maybe for std::result::Result<T, E> {
-    type Content = T;
-    fn just(x: T) -> Self {
-        Ok(x)
-    }
-    fn into_optional(self) -> Option<Self::Content> {
-        self.ok()
-    }
-    fn is_nothing(&self) -> bool {
-        self.is_err()
+macro_rules! unwrap {
+    ($e: expr) => {
+        match $crate::char::Either::into_result($e) {
+            Ok(x) => x,
+            Err(e) => return $crate::char::Either::left(e),
+        }
     }
 }
 
@@ -257,15 +275,48 @@ pub trait Stream {
     fn peek(&mut self) -> Option<char>;
     /// Take the next character and consume it.
     fn next(&mut self) -> Option<char>;
+    /// Match a string against the input.
+    fn r#match<'a>(&mut self, s: &'a str) -> Option<&'a str> {
+        for c in s.chars() {
+            match self.next() {
+                Some(x) if x == c => (),
+                _ => return None,
+            }
+        }
+        Some(s)
+    }
+    /// Pop many characters until the predicate fails.
+    fn span<T>(&mut self, mut f: impl FnMut(char) -> bool,
+               init: T, mut join: impl FnMut(&mut T, char)) -> T {
+        let mut res = init;
+        while let Some(x) = self.peek() {
+            if !f(x) { break; }
+            join(&mut res, x);
+            self.next();
+        }
+        res
+    }
+    /// Pop many characters until the predicate fails, collect them into a `Vec`.
+    fn span_collect(&mut self, f: impl FnMut(char) -> bool) -> Vec<char> {
+        self.span(f, Vec::new(), Vec::push)
+    }
+    /// Pop many characters until the predicate fails, collect them into a `String`.
+    fn span_collect_string(&mut self, f: impl FnMut(char) -> bool) -> String {
+        self.span(f, String::new(), String::push)
+    }
+    /// Pop many characters until the predicate fails, ignore the characters.
+    fn span_(&mut self, f: impl FnMut(char) -> bool) {
+        self.span(f, (), |_, _| ())
+    }
 }
 
 macro_rules! alt {
     ($lexer: expr) => { trace!(scanner, "alt: failed"); };
     ($lexer: expr, $f: expr $(, $($rest: tt)+)?) => {
         trace!(scanner, "alt: try parsing {}", stringify!($f));
-        if let Some(res) = $crate::char::Maybe::into_optional($lexer.anchored($f)) {
+        if let Ok(res) = $crate::char::Either::into_result($lexer.anchored($f)) {
             trace!(scanner, "ok: {}", stringify!($f));
-            return $crate::char::Maybe::just(res);
+            return $crate::char::Either::right(res);
         }
         trace!(scanner, "failed: {}", stringify!($f));
         alt!($lexer $(, $($rest)+)?);
@@ -285,14 +336,32 @@ macro_rules! choice {
     ($res: expr; $($rest: tt)+) => {
         |scanner| {
             analyse!(scanner, $($rest)+);
-            $crate::char::Maybe::just($res)
+            $crate::char::Either::right($res)
         }
     };
     ($($rest: tt)+) => { choice!((); $($rest)+) }
 }
 
+#[allow(unused_macros)]
+macro_rules! seq {
+    ($s: expr => $res: expr) => {
+        |scanner| scanner.r#match($s).map(|_| $res)
+    };
+    ($s: expr) => {
+        |scanner| scanner.r#match($s)
+    }
+}
+
 macro_rules! analyse {
     ($lexer: expr) => {};
+    ($lexer: expr, $x: ident : {$e: expr} {$cons: expr} * $predicate: expr $(, $($rest: tt)+)?) => {
+        check!(collect($e, $cons) many, $lexer, $x, $predicate);
+        analyse!($lexer $(, $($rest)+)?);
+    };
+    ($lexer: expr, $x: ident : {$e: expr} {$cons: expr} + $predicate: expr $(, $($rest: tt)+)?) => {
+        check!(collect($e, $cons) some, $lexer, $x, $predicate);
+        analyse!($lexer $(, $($rest)+)?);
+    };
     ($lexer: expr, $x: ident : * $predicate: expr $(, $($rest: tt)+)?) => {
         check!(many, $lexer, $x, $predicate);
         analyse!($lexer $(, $($rest)+)?);
@@ -320,16 +389,6 @@ macro_rules! analyse {
 }
 
 macro_rules! check {
-    ($count: ident, $lexer: expr, drop $__x: ident, $predicate: expr) => {
-        check_impl!($count, $lexer, $__x, $predicate);
-        let $__x = (); // effectively drop $__x
-    };
-    ($count: ident, $lexer: expr, $x: ident, $predicate: expr) => {
-        check_impl!($count, $lexer, $x, $predicate);
-    };
-}
-
-macro_rules! check_impl {
     (once, $lexer: expr, $x: ident, $predicate: expr) => {
         let $x = $lexer.next()?;
         if !$predicate.check($x) {
@@ -339,19 +398,48 @@ macro_rules! check_impl {
         trace!(scanner, "analyse: checking {} ... ok", stringify!($predicate));
         let $x = $x; // retain unused variable warnings
     };
+    (once, $lexer: expr, drop $x: ident, $predicate: expr) => {
+        check!(once, $lexer, $x, $predicate);
+        let $x = (); // effectively drop $x
+    };
     (many, $lexer: expr, $x: ident, $predicate: expr) => {
         let $x = $lexer.span_collect(|$x| $predicate.check($x));
+        trace!(scanner, "analyse: checking *{} ... ok", stringify!($predicate));
+    };
+    (many, $lexer: expr, drop $x: ident, $predicate: expr) => {
+        $lexer.span_(|$x| $predicate.check($x));
         trace!(scanner, "analyse: checking *{} ... ok", stringify!($predicate));
     };
     (some, $lexer: expr, $x: ident, $predicate: expr) => {
         let $x = $lexer.span_collect(|$x| $predicate.check($x));
         if $x.len() == 0 {
-            trace!(scanner, "analyse: checking {} ... failed", stringify!($predicate));
+            trace!(scanner, "analyse: checking +{} ... failed", stringify!($predicate));
             return None;
         }
         trace!(scanner, "analyse: checking +{} ... ok", stringify!($predicate));
         let $x = $x; // retain unused variable warnings
     };
+    (some, $lexer: expr, drop $x: ident, $predicate: expr) => {
+        trace!(scanner, "analyse: checking +{0} as {0}, *{0} ...", stringify!($predicate));
+        check!(once, $lexer: expr, drop $x, $predicate);
+        check!(many, $lexer: expr, drop $x, $predicate);
+    };
+    (collect($e: expr, $cons: expr) many, $lexer: expr, $x: ident, $predicate: expr) => {
+        let $x = $lexer.span(|$x| $predicate.check($x), $e, $cons);
+        trace!(scanner, "analyse: checking {{{}}} {{{}}} *{} ... ok",
+               stringify!($e), stringify!($cons), stringify!($predicate));
+    };
+    (collect($e: expr, $cons: expr) some, $lexer: expr, $x: ident, $predicate: expr) => {
+        let $x = $lexer.span(|$x| $predicate.check($x), $e, $cons);
+        if $x.len() == 0 {
+            trace!(scanner, "analyse: checking {{{}}} {{{}}} *{} ... failed",
+                   stringify!($e), stringify!($cons), stringify!($predicate));
+            return None;
+        }
+        trace!(scanner, "analyse: checking {{{}}} {{{}}} *{} ... ok",
+               stringify!($e), stringify!($cons), stringify!($predicate));
+        let $x = $x; // retain unused variable warnings
+    }
 }
 
 #[cfg(test)]
