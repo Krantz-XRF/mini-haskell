@@ -114,19 +114,9 @@ impl<I: std::io::Read> Scanner<I> {
 
 #[cfg(test)]
 mod tests {
-    use crate::char::Stream;
-    use crate::scanner::Scanner;
+    use crate::scanner::test_scanner_on;
     use crate::utils::setup_logger;
     use crate::utils::Result3::Success;
-
-    fn test_scanner_on<U: Eq + std::fmt::Debug>(
-        input: &str,
-        f: impl for<'a> FnOnce(&'a mut Scanner<&[u8]>) -> U,
-        res: U, next: Option<char>) {
-        let mut scanner = Scanner::new(input.as_bytes());
-        assert_eq!(f(&mut scanner), res);
-        assert_eq!(scanner.next(), next);
-    }
 
     #[test]
     fn test_whitespace() {

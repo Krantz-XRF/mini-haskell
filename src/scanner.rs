@@ -211,7 +211,7 @@ impl<I> Scanner<I> {
         &mut self, mut f: impl FnMut(&mut Scanner<I>) -> ET,
         init: EU::Right, mut join: impl FnMut(&mut EU::Right, ET::Right)) -> EU {
         let mut res = init;
-        while let Ok(x) = f(self).into_result() {
+        while let Ok(x) = self.anchored(&mut f).into_result() {
             join(&mut res, x);
         }
         Either::right(res)
@@ -279,4 +279,14 @@ impl<I> Scanner<I> {
             res
         }), init, join)
     }
+}
+
+#[cfg(test)]
+fn test_scanner_on<U: Eq + std::fmt::Debug>(
+    input: &str,
+    f: impl FnOnce(&mut Scanner<&[u8]>) -> U,
+    res: U, next: Option<char>) {
+    let mut scanner = Scanner::new(input.as_bytes());
+    assert_eq!(f(&mut scanner), res);
+    assert_eq!(scanner.next(), next);
 }

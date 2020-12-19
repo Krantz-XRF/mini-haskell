@@ -52,12 +52,17 @@ alias! {
 impl<I: std::io::Read> Scanner<I> {
     /// Identifiers or operators.
     pub fn id_or_sym(&mut self) -> Result<Lexeme> {
-        alt!(self, method!(q_var_id_or_q_sym),
-                   method!(q_con_id),
-                   method!(con_sym_or_reserved_op),
-                   method!(var_sym_or_reserved_op),
-                   method!(var_id_or_reserved_id));
+        alt!(self, Self::q_var_id_or_q_sym,
+                   Self::q_con_id,
+                   Self::con_id_,
+                   Self::con_sym_or_reserved_op,
+                   Self::var_sym_or_reserved_op,
+                   Self::var_id_or_reserved_id);
         Result::RetryLater(())
+    }
+
+    fn con_id_(&mut self) -> Option<Lexeme> {
+        self.con_id().map(Identifier)
     }
 
     fn con_id(&mut self) -> Option<String> {
@@ -104,7 +109,7 @@ impl<I: std::io::Read> Scanner<I> {
     fn mod_id(&mut self) -> Option<ModuleId> {
         // modid    -> { conid . } conid
         let names: Option<Vec<String>> = self.sep_by(
-            method!(con_id), choice!('.'), Vec::new(), Vec::push);
+            Self::con_id, choice!('.'), Vec::new(), Vec::push);
         names.map(ModuleId)
     }
 
@@ -140,7 +145,7 @@ impl<I: std::io::Read> Scanner<I> {
     fn q_con_id(&mut self) -> Option<Lexeme> {
         let init = QName::new(self.con_id()?);
         Option::map(
-            self.many(|scanner| {
+            self.some(|scanner| {
                 analyse!(scanner, '.');
                 scanner.con_id()
             }, init, QName::append),
@@ -150,13 +155,43 @@ impl<I: std::io::Read> Scanner<I> {
 
     fn q_var_id_or_q_sym(&mut self) -> Option<Lexeme> {
         let module = self.mod_id()?;
+        analyse!(self, '.');
         Some(match simple_alt!(self,
-            method!(var_id_or_reserved_id),
-            method!(var_sym_or_reserved_op),
-            method!(con_sym_or_reserved_op))? {
+            Self::var_id_or_reserved_id,
+            Self::var_sym_or_reserved_op,
+            Self::con_sym_or_reserved_op)? {
             Identifier(name) => QIdentifier(QName { module, name }),
             Operator(name) => QOperator(QName { module, name }),
             _ => return None,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::scanner::test_scanner_on;
+    use crate::utils::setup_logger;
+    use crate::utils::Result3::Success;
+    use crate::lexeme::{Lexeme, QName, ModuleId};
+    use crate::lexeme::Lexeme::{Identifier, QIdentifier, QOperator};
+
+    #[test]
+    fn test_identifier() {
+        setup_logger();
+        fn test(input: &str, res: Lexeme, next: Option<char>) {
+            trace!(scanner, "test on {:?} ...", input);
+            test_scanner_on(input, method!(id_or_sym), Success(res), next);
+        }
+        test("some'Identifier_42", Identifier("some'Identifier_42".to_string()), None);
+        test("Ctor_''233'_", Identifier("Ctor_''233'_".to_string()), None);
+        test("Mod.SubMod.Class", QIdentifier(QName {
+            module: ModuleId(vec!["Mod".to_string(), "SubMod".to_string()]),
+            name: "Class".to_string(),
+        }), None);
+        test("F..", QOperator(QName {
+            module: ModuleId(vec!["F".to_string()]),
+            name: ".".to_string(),
+        }), None);
+        test("F.", Identifier("F".to_string()), Some('.'));
     }
 }
