@@ -24,26 +24,38 @@ use crate::lexeme::{RId, ROp, Lexeme, QName, ModuleId};
 use crate::lexeme::Lexeme::{ReservedId, ReservedOp, Identifier, Operator, QIdentifier, QOperator};
 
 alias! {
+    /// see "Haskell 2010 Report, 2.2 Lexical Program Structure".
+    /// ```text
     /// small    -> ascSmall | uniSmall | _
     /// ascSmall -> a | b | ... | z
     /// uniSmall -> any Unicode lowercase letter
+    /// ```
     pub Small = any!(Ascii::Lower, Unicode::Lower, '_');
 
+    /// see "Haskell 2010 Report, 2.2 Lexical Program Structure".
+    /// ```text
     /// large    -> ascLarge | uniLarge
     /// ascLarge -> A | B | ... | Z
     /// uniLarge -> any uppercase or titlecase Unicode letter
+    /// ```
     pub Large = any!(Ascii::Upper, Unicode::Upper);
 
+    /// see "Haskell 2010 Report, 2.2 Lexical Program Structure".
+    /// ```text
     /// digit    -> ascDigit | uniDigit
     /// ascDigit -> 0 | 1 | ... | 9
     /// uniDigit -> any Unicode decimal digit
+    /// ```
     pub Digit = any!(Ascii::Digit, Unicode::Digit);
 
+    /// see "Haskell 2010 Report, 2.2 Lexical Program Structure".
+    /// ```text
     /// symbol    -> ascSymbol | uniSymbol<special | _ | " | '>
     /// ascSymbol -> ! | # | $ | % | & | * | + | . | / | < | = | > | ? | @
     ///            | \ | ^ | | | - | ~ | :
     /// uniSymbol -> any Unicode symbol or punctuation
     /// special   -> ( | ) | , | ; | [ | ] | ` | { | }
+    /// ```
     pub Symbol = any!(r"!#$%&*+./<=>?@\^|-~:",
                       all!(any!(Unicode::Symbol, Unicode::Punct),
                            not!(r#"(),;[]```{}_"'"#)));
