@@ -264,12 +264,15 @@ macro_rules! alt {
         trace!(scanner, "alt: try parsing {}", stringify!($f));
         {
             let res = $lexer.anchored($f);
-            if $crate::utils::Maybe::is_just(&res) {
-                trace!(scanner, "ok: {}", stringify!($f));
-            }
-            if let Ok(res) = $crate::utils::Either::into_result(res) {
+            let just = $crate::utils::Maybe::is_just(&res);
+            if let Ok(val) = $crate::utils::Either::into_result(res) {
+                if just {
+                    trace!(scanner, "ok: {}: {:?}", stringify!($f), val);
+                } else {
+                    trace!(scanner, "fail fast: {}", stringify!($f));
+                }
                 return $crate::utils::Either::right(
-                    std::convert::From::from(res));
+                    std::convert::From::from(val));
             }
         }
         trace!(scanner, "failed: {}", stringify!($f));
@@ -279,10 +282,10 @@ macro_rules! alt {
 
 macro_rules! simple_alt {
     ($lexer: expr $(, $($rest: tt)+)?) => {
-        {
+        (|| {
             alt!($lexer, $($($rest)+)?);
             None
-        }
+        })()
     }
 }
 
@@ -346,10 +349,10 @@ macro_rules! check {
     (once, $lexer: expr, $x: ident, $predicate: expr) => {
         let $x = $lexer.next()?;
         if !$predicate.check($x) {
-            trace!(scanner, "analyse: checking {} ... failed", stringify!($predicate));
+            trace!(scanner, "analyse({:?}): checking {} ... failed", $x, stringify!($predicate));
             return None;
         }
-        trace!(scanner, "analyse: checking {} ... ok", stringify!($predicate));
+        trace!(scanner, "analyse({:?}): checking {} ... ok", $x, stringify!($predicate));
         let $x = $x; // retain unused variable warnings
     };
     (once, $lexer: expr, drop $x: ident, $predicate: expr) => {
