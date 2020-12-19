@@ -24,7 +24,7 @@ pub mod whitespace;
 use crate::utils::*;
 use crate::input::Input;
 use crate::lexeme::LexemeType;
-use crate::char::{CharPredicate, Unicode, Stream, Either};
+use crate::char::{CharPredicate, Unicode, Stream};
 use crate::error::{
     Diagnostic, DiagnosticsEngine, DiagnosticMessage::Error,
     Error::{InvalidUTF8, InputFailure, InvalidChar},

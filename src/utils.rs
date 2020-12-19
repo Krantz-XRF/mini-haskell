@@ -21,6 +21,57 @@
 /// The uninhabited type `Void`.
 pub enum Void {}
 
+/// The `std::ops::Try` trait is not yet stable. We roll up our own for now.
+/// It is named after `Either`, `Left`, and `Right` from Haskell.
+pub trait Either {
+    /// The type to propagate in a `Left`.
+    type Left;
+    /// The type to continue with in a `Right`.
+    type Right;
+    /// Construct a `Left`:
+    /// - `None` for `Optional`
+    /// - `Err` for `Result`
+    fn left(x: Self::Left) -> Self;
+    /// Construct a `Right`:
+    /// - `Some` for `Optional`
+    /// - `Ok` for `Result`
+    fn right(x: Self::Right) -> Self;
+    /// Consumes the value and makes a `Result`.
+    fn into_result(self) -> Result<Self::Right, Self::Left>;
+}
+
+impl<T> Either for Option<T> {
+    type Left = Option<Void>;
+    type Right = T;
+
+    fn left(_: Option<Void>) -> Self { None }
+    fn right(x: T) -> Self { Some(x) }
+    fn into_result(self) -> Result<T, Option<Void>> {
+        match self {
+            Some(x) => Ok(x),
+            None => Err(None),
+        }
+    }
+}
+
+impl<T, E> Either for Result<T, E> {
+    type Left = E;
+    type Right = T;
+
+    fn left(x: E) -> Self { Err(x) }
+    fn right(x: T) -> Self { Ok(x) }
+    fn into_result(self) -> Result<T, E> { self }
+}
+
+macro_rules! unwrap {
+    ($e: expr) => {
+        match $crate::utils::Either::into_result($e) {
+            Ok(x) => x,
+            Err(e) => return $crate::utils::Either::left(e),
+        }
+    }
+}
+
 /// Round `x` to multiples of `n`.
 ///
 /// ```

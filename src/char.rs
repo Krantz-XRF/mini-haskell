@@ -19,7 +19,6 @@
 //! character related utilities.
 
 use unic_ucd_category::GeneralCategory;
-use crate::utils::Void;
 
 /// ASCII character categories.
 pub enum Ascii {
@@ -218,57 +217,6 @@ macro_rules! alias {
     }
 }
 
-/// The `std::ops::Try` trait is not yet stable. We roll up our own for now.
-/// It is named after `Either`, `Left`, and `Right` from Haskell.
-pub trait Either {
-    /// The type to propagate in a `Left`.
-    type Left;
-    /// The type to continue with in a `Right`.
-    type Right;
-    /// Construct a `Left`:
-    /// - `None` for `Optional`
-    /// - `Err` for `Result`
-    fn left(x: Self::Left) -> Self;
-    /// Construct a `Right`:
-    /// - `Some` for `Optional`
-    /// - `Ok` for `Result`
-    fn right(x: Self::Right) -> Self;
-    /// Consumes the value and makes a `Result`.
-    fn into_result(self) -> Result<Self::Right, Self::Left>;
-}
-
-impl<T> Either for Option<T> {
-    type Left = Option<Void>;
-    type Right = T;
-
-    fn left(_: Option<Void>) -> Self { None }
-    fn right(x: T) -> Self { Some(x) }
-    fn into_result(self) -> Result<T, Option<Void>> {
-        match self {
-            Some(x) => Ok(x),
-            None => Err(None),
-        }
-    }
-}
-
-impl<T, E> Either for Result<T, E> {
-    type Left = E;
-    type Right = T;
-
-    fn left(x: E) -> Self { Err(x) }
-    fn right(x: T) -> Self { Ok(x) }
-    fn into_result(self) -> Result<T, E> { self }
-}
-
-macro_rules! unwrap {
-    ($e: expr) => {
-        match $crate::char::Either::into_result($e) {
-            Ok(x) => x,
-            Err(e) => return $crate::char::Either::left(e),
-        }
-    }
-}
-
 /// A character stream, common interface for macros here.
 pub trait Stream {
     /// Peek the next character without consuming it.
@@ -314,9 +262,9 @@ macro_rules! alt {
     ($lexer: expr) => { trace!(scanner, "alt: failed"); };
     ($lexer: expr, $f: expr $(, $($rest: tt)+)?) => {
         trace!(scanner, "alt: try parsing {}", stringify!($f));
-        if let Ok(res) = $crate::char::Either::into_result($lexer.anchored($f)) {
+        if let Ok(res) = $crate::utils::Either::into_result($lexer.anchored($f)) {
             trace!(scanner, "ok: {}", stringify!($f));
-            return $crate::char::Either::right(res);
+            return $crate::utils::Either::right(res);
         }
         trace!(scanner, "failed: {}", stringify!($f));
         alt!($lexer $(, $($rest)+)?);
@@ -336,7 +284,7 @@ macro_rules! choice {
     ($res: expr; $($rest: tt)+) => {
         |scanner| {
             analyse!(scanner, $($rest)+);
-            $crate::char::Either::right($res)
+            $crate::utils::Either::right($res)
         }
     };
     ($($rest: tt)+) => { choice!((); $($rest)+) }
