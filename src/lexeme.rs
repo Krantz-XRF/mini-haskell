@@ -18,6 +18,11 @@
 
 //! Haskell lexemes.
 
+/// Haskell `Integer`.
+use std::ops::{Add, Div};
+use num_bigint::BigInt;
+use num_integer::Integer;
+
 /// Haskell module identifier (`M1.M2.(...).Mn`).
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ModuleId(pub Vec<String>);
@@ -43,6 +48,43 @@ impl QName {
     }
 }
 
+/// Haskell `Ratio`.
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct Ratio<T> {
+    numerator: T,
+    denominator: T,
+}
+
+impl<I: Integer + for<'a> Div<&'a I, Output=I>> Ratio<I> {
+    /// Create a new [`Ratio`].
+    pub fn new(numerator: impl Into<I>, denominator: impl Into<I>) -> Self {
+        let numerator = numerator.into();
+        let denominator = denominator.into();
+        let g = numerator.gcd(&denominator);
+        Ratio { numerator: numerator / &g, denominator: denominator / &g }
+    }
+}
+
+impl<I: Integer> From<I> for Ratio<I> {
+    fn from(numerator: I) -> Self {
+        Ratio { numerator, denominator: I::one() }
+    }
+}
+
+impl<I: Integer> Add for Ratio<I> {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        let (g, l) = self.denominator.gcd_lcm(&rhs.denominator);
+        Ratio {
+            denominator: l,
+            numerator: (self.numerator * rhs.denominator + rhs.numerator * self.denominator) / g,
+        }
+    }
+}
+
+/// Haskell `Rational`.
+pub type Rational = Ratio<BigInt>;
+
 lexemes! {
     /// Whitespaces.
     Whitespace,
@@ -55,7 +97,9 @@ lexemes! {
     /// Qualified Operators.
     QOperator(QName),
     /// Integers.
-    Integer(isize),
+    Integer(BigInt),
+    /// Rationals.
+    Float(Rational),
     /// Reserved keywords.
     ReservedId(RId),
     /// Reserved operators.

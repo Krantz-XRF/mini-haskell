@@ -20,6 +20,7 @@
 
 pub mod identifier;
 pub mod whitespace;
+pub mod numeric;
 
 use crate::utils::*;
 use crate::input::Input;

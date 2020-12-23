@@ -210,7 +210,7 @@ macro_rules! alias {
         $(
             $($(#[$meta])* pub)?
             struct $p;
-            impl CharPredicate for $p {
+            impl $crate::char::CharPredicate for $p {
                 fn check(&self, x: char) -> bool { $e.check(x) }
             }
         )+
@@ -283,7 +283,7 @@ macro_rules! alt {
 macro_rules! simple_alt {
     ($lexer: expr $(, $($rest: tt)+)?) => {
         (|| {
-            alt!($lexer, $($($rest)+)?);
+            alt!($lexer $(, $($rest)+)?);
             None
         })()
     }
@@ -387,15 +387,21 @@ macro_rules! check {
                stringify!($e), stringify!($cons), stringify!($predicate));
     };
     (collect($e: expr, $cons: expr) some, $lexer: expr, $x: ident, $predicate: expr) => {
-        let $x = $lexer.span(|$x| $predicate.check($x), $e, $cons);
-        if $x.len() == 0 {
-            trace!(scanner, "analyse: checking {{{}}} {{{}}} *{} ... failed",
+        let $x = {
+            let ($x, __flag) = $lexer.span(|$x| $predicate.check($x), ($e, false),
+                |(res, flag), x| {
+                    $cons(res, x);
+                    *flag = true;
+                });
+            if !__flag {
+                trace!(scanner, "analyse: checking {{{}}} {{{}}} +{} ... failed",
+                       stringify!($e), stringify!($cons), stringify!($predicate));
+                return None;
+            }
+            trace!(scanner, "analyse: checking {{{}}} {{{}}} +{} ... ok",
                    stringify!($e), stringify!($cons), stringify!($predicate));
-            return None;
-        }
-        trace!(scanner, "analyse: checking {{{}}} {{{}}} *{} ... ok",
-               stringify!($e), stringify!($cons), stringify!($predicate));
-        let $x = $x; // retain unused variable warnings
+            $x
+        };
     }
 }
 

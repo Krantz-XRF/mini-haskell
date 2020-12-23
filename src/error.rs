@@ -18,6 +18,7 @@
 
 //! error reporting for the mini-Haskell compiler.
 
+use num_bigint::BigInt;
 use crate::lexeme::LexemeType;
 use crate::scanner::{LexError, Location, Range};
 
@@ -34,6 +35,16 @@ pub enum Error {
     InvalidToken(LexError),
     /// A lexeme ended prematurely, e.g. EOF in a block comment.
     IncompleteLexeme(LexemeType),
+    /// A float literal is too large (or small) to represent.
+    ///
+    /// **Note**:
+    ///
+    /// - maximum value for IEEE 754 64-bit double is approximately 1.8e308;
+    /// - to prevent loss of precision, maximum value to store in IEEE 754 64-bit double is 2^53;
+    /// - `Rational` with an exponent 4096 takes approximately 13.3KiB to store;
+    /// - large float literals may eventually exhaust the usable memory of the compiler;
+    /// - `Rational` is probably not a good representation for large floats;
+    FloatOutOfBound(BigInt),
 }
 
 /// A diagnostic message (body).
