@@ -37,7 +37,7 @@ impl<I: std::io::Read> Scanner<I> {
         Self::keep_trying()
     }
 
-    fn whitechar(&mut self) -> Option<()> {
+    pub(super) fn whitechar(&mut self) -> Option<()> {
         // whitechar  -> newline | vertab | space | tab | uniWhite
         // vertab     -> a vertical tab
         // space      -> a space

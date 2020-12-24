@@ -100,6 +100,10 @@ lexemes! {
     Integer(BigInt),
     /// Rationals.
     Float(Rational),
+    /// Character literals.
+    CharLiteral(char),
+    /// String literals.
+    StringLiteral(String),
     /// Reserved keywords.
     ReservedId(RId),
     /// Reserved operators.

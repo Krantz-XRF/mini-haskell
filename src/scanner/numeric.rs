@@ -41,6 +41,7 @@ alias! {
     /// ascDigit    -> 0 | 1 | ... | 9
     /// uniDigit    -> any Unicode decimal digit
     /// ```
+    /// TODO: Properly handle Unicode digits.
     pub Digit = any!(Ascii::Digit, Unicode::Digit);
 
     /// see "Haskell 2010 Report, 2.2 Lexical Program Structure".
@@ -63,7 +64,7 @@ impl<I: std::io::Read> Scanner<I> {
         Self::keep_trying()
     }
 
-    fn app_int(base: u32) -> impl Fn(&mut BigInt, char) {
+    pub(super) fn app_int(base: u32) -> impl Fn(&mut BigInt, char) {
         move |r, x| {
             *r *= base;
             *r += x.to_digit(base).unwrap()

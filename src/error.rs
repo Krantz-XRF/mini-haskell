@@ -45,6 +45,8 @@ pub enum Error {
     /// - large float literals may eventually exhaust the usable memory of the compiler;
     /// - `Rational` is probably not a good representation for large floats;
     FloatOutOfBound(BigInt),
+    /// A character/string literal contains a Unicode character out of bound.
+    CharOutOfBound(BigInt),
 }
 
 /// A diagnostic message (body).
