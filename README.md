@@ -13,8 +13,13 @@ A toy implementation for Haskell written in Rust.
 Still work in progress (very early stage):
 
 - [ ] Scanner
-  - [x] Buffer
-  - [ ] Tokenizer
+  - [x] Input
+  - [x] Tokenizer
+    - [x] Whitespaces
+    - [x] Identifier
+    - [x] Numeric Literals
+    - [x] Character Literals
+    - [x] String Literals
   - [ ] Layout
 - [ ] Parser
   - [ ] AST
