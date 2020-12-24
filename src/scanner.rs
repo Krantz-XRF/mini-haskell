@@ -18,6 +18,7 @@
 
 //! lexical scanner for mini-haskell.
 
+pub mod basic;
 pub mod identifier;
 pub mod whitespace;
 pub mod numeric;
@@ -26,12 +27,13 @@ pub mod char_string;
 use crate::utils::*;
 use crate::input::Input;
 use crate::lexeme::LexemeType;
-use crate::char::{CharPredicate, Unicode, Stream};
+use crate::char::{CharPredicate, Stream};
 use crate::error::{
     Diagnostic, DiagnosticsEngine, DiagnosticMessage::Error,
     Error::{InvalidUTF8, InputFailure, InvalidChar},
 };
 use crate::utils::Result3::{FailFast, RetryLater};
+use crate::scanner::basic::Any;
 
 /// Source location.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -105,17 +107,7 @@ impl<I: std::io::Read> Stream for Scanner<I> {
         if let Some(x) = res {
             self.location.step();
             // ANY        -> graphic | whitechar
-            // graphic    -> small | large | symbol | digit | special | " | '
-            // special    -> ( | ) | , | ; | [ | ] | ` | { | }
-            // symbol     -> ascSymbol | uniSymbol<special | _ | " | '>
-            // ascSymbol  -> ! | # | $ | % | & | * | + | . | / | < | = | > | ? | @
-            //             | \ | ^ | | | - | ~ | :
-            // uniSymbol  -> any Unicode symbol or punctuation
-            if !any!("(),;[]`{}\"\'\r\n\t\u{B}\u{C}", Unicode::White,
-                     Unicode::Lower, Unicode::Upper,
-                     r"!#$%&*+./<=>?@\^|-~:",
-                     Unicode::Symbol, Unicode::Punct,
-                     Unicode::Digit, "(),;[]`{}").check(x) {
+            if !Any.check(x) {
                 Diagnostic::new(self.location, Error(InvalidChar(x)))
                     .report(&mut self.diagnostics);
             }

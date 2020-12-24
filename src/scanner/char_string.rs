@@ -22,7 +22,7 @@ use std::convert::identity;
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
-use super::{Scanner, Result, numeric::Digit};
+use super::{Scanner, Result, basic::*};
 use crate::char::{Stream, CharPredicate, Ascii};
 use crate::error::Diagnostic;
 use crate::error::DiagnosticMessage::Error;
@@ -39,7 +39,7 @@ impl<I: std::io::Read> Scanner<I> {
     fn char(&mut self) -> Option<Lexeme> {
         // char     -> ' ( graphic<’ | \> | space | escape<\&> ) '
         analyse!(self, '\'');
-        let c = simple_alt!(self, choice!(c; c: not!("'\\")), Self::escape)?;
+        let c = simple_alt!(self, choice!(c; c: all!(Graphic, not!("'\\"))), Self::escape)?;
         analyse!(self, '\'');
         Some(CharLiteral(c))
     }
@@ -50,7 +50,7 @@ impl<I: std::io::Read> Scanner<I> {
         let s = identity::<Option<_>>(self.many(
             |this| {
                 alt!(this, seq!("\\&" => None),
-                           choice!(Some(c); c: not!("\"\\")),
+                           choice!(Some(c); c: any!(all!(Graphic, not!("\"\\")), ' ')),
                            |this| this.escape().map(Some),
                            |this| this.gap().map(|_| None));
                 None

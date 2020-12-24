@@ -18,12 +18,12 @@
 
 //! numeric literals: see "Haskell 2010 Report: 2.5 Numeric Literals".
 
-use super::{Scanner, Result};
+use super::{Scanner, Result, basic::*};
 
 use num_bigint::BigInt;
 use num_traits::{identities::Zero, ToPrimitive, Signed};
 
-use crate::char::{CharPredicate, Stream, Ascii, Unicode};
+use crate::char::{CharPredicate, Stream};
 use crate::lexeme::{Rational, Lexeme};
 use crate::lexeme::Lexeme::{Integer, Float};
 use crate::error::Diagnostic;
@@ -33,29 +33,6 @@ use crate::scanner::Location;
 
 /// Maximum allowed exponent in a floating number.
 pub const MAXIMUM_EXPONENT: i64 = 4096;
-
-alias! {
-    /// see "Haskell 2010 Report, 2.2 Lexical Program Structure".
-    /// ```text
-    /// digit       -> ascDigit | uniDigit
-    /// ascDigit    -> 0 | 1 | ... | 9
-    /// uniDigit    -> any Unicode decimal digit
-    /// ```
-    /// TODO: Properly handle Unicode digits.
-    pub Digit = any!(Ascii::Digit, Unicode::Digit);
-
-    /// see "Haskell 2010 Report, 2.2 Lexical Program Structure".
-    /// ```text
-    /// octit       -> 0 | 1 | ... | 7
-    /// ```
-    pub Octit = '0'..='7';
-
-    /// see "Haskell 2010 Report, 2.2 Lexical Program Structure".
-    /// ```text
-    /// hexit       -> digit | A | ... | F | a | ... | f
-    /// ```
-    pub Hexit = any!(Digit, 'A'..='F', 'a'..='f');
-}
 
 impl<I: std::io::Read> Scanner<I> {
     /// Numeric literals: integers or floats.

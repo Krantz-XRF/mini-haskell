@@ -19,7 +19,7 @@
 //! whitespaces: see "Haskell 2010 Report: 2.2 Lexical Program Structure" and
 //! "Haskell 2010 Report: 2.3 Comments".
 
-use super::{Result, Scanner};
+use super::{Result, Scanner, basic::Symbol};
 use crate::char::{CharPredicate, Unicode, Stream};
 use crate::error::{DiagnosticMessage::Error, Error::IncompleteLexeme, Diagnostic};
 use crate::lexeme::LexemeType::Whitespace;
@@ -71,7 +71,7 @@ impl<I: std::io::Read> Scanner<I> {
     fn comment(&mut self) -> Option<()> {
         // comment    -> dashes [ any<symbol> {any} ] newline
         analyse!(self, '-', '-', *'-');
-        if Unicode::Symbol.check(self.peek()?) { return None; }
+        if Symbol.check(self.peek()?) { return None; }
         analyse!(self, *not!("\r\n\u{C}"));
         self.newline()
     }
