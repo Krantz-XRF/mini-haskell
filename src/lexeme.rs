@@ -108,6 +108,24 @@ lexemes! {
     ReservedId(RId),
     /// Reserved operators.
     ReservedOp(ROp),
+    /// Commas (`,`).
+    Comma,
+    /// Semicolons (`;`).
+    Semicolon,
+    /// Back-ticks (`` ` ``).
+    Backtick,
+    /// Open curly brackets (`{`).
+    OpenCurlyBracket,
+    /// Close curly brackets (`}`).
+    CloseCurlyBracket,
+    /// Open parenthesis (`(`).
+    OpenParenthesis,
+    /// Close parenthesis (`)`).
+    CloseParenthesis,
+    /// Open square brackets (`[`).
+    OpenSquareBracket,
+    /// Close square brackets (`]`).
+    CloseSquareBracket,
 }
 
 /// Haskell Reserved Keywords.

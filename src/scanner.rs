@@ -23,16 +23,17 @@ pub mod identifier;
 pub mod whitespace;
 pub mod numeric;
 pub mod char_string;
+pub mod special;
 
 use crate::utils::*;
 use crate::input::Input;
-use crate::lexeme::LexemeType;
+use crate::lexeme::{LexemeType, Lexeme};
 use crate::char::{CharPredicate, Stream};
 use crate::error::{
     Diagnostic, DiagnosticsEngine, DiagnosticMessage::Error,
     Error::{InvalidUTF8, InputFailure, InvalidChar},
 };
-use crate::utils::Result3::{FailFast, RetryLater};
+use crate::utils::Result3::{FailFast, RetryLater, Success};
 use crate::scanner::basic::Any;
 
 /// Source location.
@@ -275,6 +276,20 @@ impl<I> Scanner<I> {
     }
 }
 
+impl<I: std::io::Read> Scanner<I> {
+    /// Get the next lexeme from the [`Scanner`].
+    pub fn next_lexeme(&mut self) -> Result<Lexeme> {
+        // possibly consume whitespaces and ignore errors.
+        let _ = self.whitespace();
+        // enumerate all the possible lexeme types.
+        alt!(self, Self::numeric_literal,
+                   Self::id_or_sym,
+                   Self::char_or_string,
+                   Self::special);
+        Self::keep_trying()
+    }
+}
+
 #[cfg(test)]
 fn test_scanner_on<U: Eq + std::fmt::Debug>(
     input: &str,
@@ -283,4 +298,112 @@ fn test_scanner_on<U: Eq + std::fmt::Debug>(
     let mut scanner = Scanner::new(input.as_bytes());
     assert_eq!(f(&mut scanner), res);
     assert_eq!(scanner.next(), next);
+}
+
+/// An iterator of lexemes from an [`Input`] stream.
+pub struct LexemeIterator<I: std::io::Read> {
+    scanner: Scanner<I>,
+    location: Location,
+    error: Option<LexError>,
+}
+
+impl<I: std::io::Read> Iterator for LexemeIterator<I> {
+    type Item = Lexeme;
+    fn next(&mut self) -> Option<Lexeme> {
+        if self.error.is_some() { return None; }
+        self.location = self.scanner.location;
+        match self.scanner.next_lexeme() {
+            Success(x) => Some(x),
+            RetryLater(_) => None,
+            FailFast(err) => {
+                self.error = Some(err);
+                None
+            }
+        }
+    }
+}
+
+impl<I: std::io::Read> From<Scanner<I>> for LexemeIterator<I> {
+    fn from(scanner: Scanner<I>) -> Self {
+        Self {
+            location: scanner.location,
+            error: None,
+            scanner,
+        }
+    }
+}
+
+impl<I: std::io::Read> LexemeIterator<I> {
+    /// Create a new lexeme iterator from raw input.
+    pub fn new(input: I) -> Self {
+        Self::from(Scanner::new(input))
+    }
+
+    /// Get back the internal scanner of this iterator.
+    pub fn into_scanner(self) -> (Option<LexError>, Scanner<I>) {
+        (self.error, self.scanner)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use indoc::indoc;
+    use crate::scanner::LexemeIterator;
+    use crate::lexeme::Lexeme::{self, *};
+    use crate::lexeme::RId::*;
+    use crate::lexeme::ROp::*;
+
+    const TEST_SOURCE: &str = indoc! {r#"
+        module Main where
+        import Prelude hiding (Integer)
+        main :: IO ()
+        main = do
+            name <- getLine
+            putStrLn ("Hello, " <> name <> "!")
+            pure ()
+    "#};
+
+    fn expected_lexemes() -> Box<[Lexeme]> {
+        vec![
+            ReservedId(Module),
+            Identifier("Main".to_string()),
+            ReservedId(Where),
+            ReservedId(Import),
+            Identifier("Prelude".to_string()),
+            Identifier("hiding".to_string()),
+            OpenParenthesis,
+            Identifier("Integer".to_string()),
+            CloseParenthesis,
+            Identifier("main".to_string()),
+            ReservedOp(ColonColon),
+            Identifier("IO".to_string()),
+            OpenParenthesis,
+            CloseParenthesis,
+            Identifier("main".to_string()),
+            ReservedOp(EqualSign),
+            ReservedId(Do),
+            Identifier("name".to_string()),
+            ReservedOp(LeftArrow),
+            Identifier("getLine".to_string()),
+            Identifier("putStrLn".to_string()),
+            OpenParenthesis,
+            StringLiteral("Hello, ".to_string()),
+            Operator("<>".to_string()),
+            Identifier("name".to_string()),
+            Operator("<>".to_string()),
+            StringLiteral("!".to_string()),
+            CloseParenthesis,
+            Identifier("pure".to_string()),
+            OpenParenthesis,
+            CloseParenthesis,
+        ].into_boxed_slice()
+    }
+
+    #[test]
+    fn test_lexeme_iterator() {
+        let mut it = LexemeIterator::new(TEST_SOURCE.as_bytes());
+        assert!(it.by_ref().eq(expected_lexemes().iter().cloned()));
+        let (err, _) = it.into_scanner();
+        assert_eq!(err, None);
+    }
 }
