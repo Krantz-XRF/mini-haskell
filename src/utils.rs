@@ -49,7 +49,7 @@ pub trait Maybe {
     fn is_just(&self) -> bool;
     /// Check whether it is a failure.
     fn is_nothing(&self) -> bool { !self.is_just() }
-    /// Convert into an `Optional`.
+    /// Convert into an [`Option`].
     fn into_optional(self) -> Option<Self::Just>;
 }
 
@@ -87,11 +87,11 @@ pub trait Either {
     /// The type to continue with in a `Right`.
     type Right;
     /// Construct a `Left`:
-    /// - [`None`] for [`Optional`]
+    /// - [`None`] for [`Option`]
     /// - [`Err`] for [`Result`]
     fn left(x: Self::Left) -> Self;
     /// Construct a `Right`:
-    /// - [`Some`] for [`Optional`]
+    /// - [`Some`] for [`Option`]
     /// - [`Ok`] for [`Result`]
     fn right(x: Self::Right) -> Self;
     /// Consumes the value and makes a [`Result`].

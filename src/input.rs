@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Persistent input from a `Read`.
+//! Persistent input from a [`std::io::Read`].
 
 use std::cell::UnsafeCell;
 use std::rc::Rc;
@@ -85,7 +85,7 @@ impl<I> InputSegment<I> {
 }
 
 impl<I> RawInput<I> {
-    /// Create a new [`RawInput`] from a [`Read`].
+    /// Create a new [`RawInput`] from a [`std::io::Read`].
     pub fn new(input: I) -> Self {
         RawInput(Rc::new(UnsafeCell::new(InputSegment::new(input))))
     }
@@ -202,7 +202,7 @@ impl<I> Clone for Input<I> {
 }
 
 impl<I> Input<I> {
-    /// Create a new [`Input`] from a [`Read`].
+    /// Create a new [`Input`] from a [`std::io::Read`].
     pub fn new(input: I) -> Self {
         Input { input: RawInput::new(input), index: 0 }
     }
