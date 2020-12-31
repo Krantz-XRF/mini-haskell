@@ -24,6 +24,7 @@ pub mod whitespace;
 pub mod numeric;
 pub mod char_string;
 pub mod special;
+pub mod layout;
 
 use crate::utils::*;
 use crate::input::Input;
