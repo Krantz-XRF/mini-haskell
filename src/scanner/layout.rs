@@ -21,6 +21,7 @@
 use super::{Range, LexError, Scanner, Location};
 use crate::lexeme::{Lexeme, Lexeme::*, RId::Module};
 use crate::utils::Result3::*;
+use std::fmt::{Display, Formatter};
 
 enum LastLexeme {
     LetWhereDoOf,
@@ -39,6 +40,17 @@ pub enum EnrichedLexeme {
     AngleN(usize),
     /// a normal lexeme with a source range.
     Normal(Lexeme, Range),
+}
+
+impl Display for EnrichedLexeme {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use EnrichedLexeme::*;
+        match self {
+            CurlyN(n) => write!(f, "{{{}}}", n),
+            AngleN(n) => write!(f, "<{}>", n),
+            Normal(lexeme, range) => write!(f, "{}: {}", range, lexeme)
+        }
+    }
 }
 
 /// Lexeme stream enriched with `{n}` and `<n>`.
@@ -193,10 +205,10 @@ mod tests {
     use indoc::indoc;
     use super::RawLexemeIterator;
     use super::FatLexemeIterator;
-    use crate::lexeme::Lexeme::{self, *};
+    use super::EnrichedLexemeIterator;
+    use crate::lexeme::Lexeme::*;
     use crate::lexeme::RId::*;
     use crate::lexeme::ROp::*;
-    use crate::scanner::layout::EnrichedLexemeIterator;
 
     const TEST_SOURCE: &str = indoc! {r#"
         module Main where
@@ -208,8 +220,10 @@ mod tests {
             pure ()
     "#};
 
-    fn expected_lexemes() -> Box<[Lexeme]> {
-        vec![
+    #[test]
+    fn test_raw_iterator() {
+        let mut it = RawLexemeIterator::new(TEST_SOURCE.as_bytes());
+        assert!(it.by_ref().eq([
             ReservedId(Module),
             Identifier("Main".to_string()),
             ReservedId(Where),
@@ -241,13 +255,7 @@ mod tests {
             Identifier("pure".to_string()),
             OpenParenthesis,
             CloseParenthesis,
-        ].into_boxed_slice()
-    }
-
-    #[test]
-    fn test_raw_iterator() {
-        let mut it = RawLexemeIterator::new(TEST_SOURCE.as_bytes());
-        assert!(it.by_ref().eq(expected_lexemes().iter().cloned()));
+        ].iter().cloned()));
         let (err, _) = it.into_scanner();
         assert_eq!(err, None);
     }
@@ -255,10 +263,46 @@ mod tests {
     #[test]
     fn test_enriched_iterator() {
         let mut it = FatLexemeIterator::new(TEST_SOURCE.as_bytes());
-        let mut enriched = EnrichedLexemeIterator::from(&mut it);
-        for x in enriched.by_ref() {
-            println!("{:?}", x);
-        }
+        assert!(EnrichedLexemeIterator::from(&mut it)
+            .map(|t| format!("{}", t)).eq([
+            "1:1-1:7: module",
+            "1:8-1:12: Main",
+            "1:13-1:18: where",
+            "{0}",
+            "2:0-2:6: import",
+            "2:7-2:14: Prelude",
+            "2:15-2:21: hiding",
+            "2:22-2:23: (",
+            "2:23-2:30: Integer",
+            "2:30-2:31: )",
+            "<0>",
+            "3:0-3:4: main",
+            "3:5-3:7: ::",
+            "3:8-3:10: IO",
+            "3:11-3:12: (",
+            "3:12-3:13: )",
+            "<0>",
+            "4:0-4:4: main",
+            "4:5-4:6: =",
+            "4:7-4:9: do",
+            "{4}",
+            "5:4-5:8: name",
+            "5:9-5:11: <-",
+            "5:12-5:19: getLine",
+            "<4>",
+            "6:4-6:12: putStrLn",
+            "6:13-6:14: (",
+            "6:14-6:23: \"Hello, \"",
+            "6:24-6:26: <>",
+            "6:27-6:31: name",
+            "6:32-6:34: <>",
+            "6:35-6:38: \"!\"",
+            "6:38-6:39: )",
+            "<4>",
+            "7:4-7:8: pure",
+            "7:9-7:10: (",
+            "7:10-7:11: )",
+        ].iter().copied()));
         let (err, _) = it.into_scanner();
         assert_eq!(err, None);
     }

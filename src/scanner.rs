@@ -26,6 +26,7 @@ pub mod char_string;
 pub mod special;
 pub mod layout;
 
+use std::fmt::{Formatter, Display};
 use crate::utils::*;
 use crate::input::Input;
 use crate::lexeme::{LexemeType, Lexeme};
@@ -50,6 +51,12 @@ pub struct Location {
 
 impl Default for Location {
     fn default() -> Self { Location { line: 1, column: 1, offset: 0 } }
+}
+
+impl Display for Location {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
 }
 
 impl Location {
@@ -85,6 +92,12 @@ pub struct Range {
     pub begin: Location,
     /// Where the range ends (non-inclusive).
     pub end: Location,
+}
+
+impl Display for Range {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}-{}", self.begin, self.end)
+    }
 }
 
 /// Scanner with a back buffer.

@@ -22,6 +22,7 @@
 use std::ops::{Add, Div};
 use num_bigint::BigInt;
 use num_integer::Integer;
+use std::fmt::{Formatter, Debug, Display};
 
 /// Haskell module identifier (`M1.M2.(...).Mn`).
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -45,6 +46,15 @@ impl QName {
     /// Append a name segment to a qualified name.
     pub fn append(&mut self, name: String) {
         self.module.0.push(std::mem::replace(&mut self.name, name))
+    }
+}
+
+impl Display for QName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for m_id in self.module.0.iter() {
+            write!(f, "{}.", m_id)?;
+        }
+        write!(f, "{}", self.name)
     }
 }
 
@@ -79,6 +89,12 @@ impl<I: Integer> Add for Ratio<I> {
             denominator: l,
             numerator: (self.numerator * rhs.denominator + rhs.numerator * self.denominator) / g,
         }
+    }
+}
+
+impl<I: Display> Display for Ratio<I> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} % {}", self.numerator, self.denominator)
     }
 }
 
@@ -128,6 +144,34 @@ lexemes! {
     CloseSquareBracket,
 }
 
+impl Display for Lexeme {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use Lexeme::*;
+        match self {
+            Whitespace => write!(f, "<whitespace>"),
+            Identifier(s) => write!(f, "{}", s),
+            Operator(op) => write!(f, "{}", op),
+            QIdentifier(name) => write!(f, "{}", name),
+            QOperator(name) => write!(f, "{}", name),
+            Integer(n) => write!(f, "fromIntegral {}", n),
+            Float(q) => write!(f, "fromRational ({})", q),
+            CharLiteral(c) => write!(f, "{:?}", c),
+            StringLiteral(s) => write!(f, "{:?}", s),
+            ReservedId(id) => write!(f, "{}", id),
+            ReservedOp(op) => write!(f, "{}", op),
+            Comma => write!(f, ","),
+            Semicolon => write!(f, ";"),
+            Backtick => write!(f, "`"),
+            OpenCurlyBracket => write!(f, "{{"),
+            CloseCurlyBracket => write!(f, "}}"),
+            OpenParenthesis => write!(f, "("),
+            CloseParenthesis => write!(f, ")"),
+            OpenSquareBracket => write!(f, "["),
+            CloseSquareBracket => write!(f, "]"),
+        }
+    }
+}
+
 /// Haskell Reserved Keywords.
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -157,6 +201,37 @@ pub enum RId {
     Wildcard,
 }
 
+impl Display for RId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use RId::*;
+        f.write_str(match self {
+            Case => "case",
+            Class => "class",
+            Data => "data",
+            Default => "default",
+            Deriving => "deriving",
+            Do => "do",
+            Else => "else",
+            Foreign => "foreign",
+            If => "if",
+            Import => "import",
+            In => "in",
+            Infix => "infix",
+            Infixl => "infixl",
+            Infixr => "infixr",
+            Instance => "instance",
+            Let => "let",
+            Module => "module",
+            Newtype => "newtype",
+            Of => "of",
+            Then => "then",
+            Type => "type",
+            Where => "where",
+            Wildcard => "wildcard",
+        })
+    }
+}
+
 /// Haskell Reserved Operators.
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -172,4 +247,23 @@ pub enum ROp {
     AtSign,
     Tilde,
     DoubleRightArrow,
+}
+
+impl Display for ROp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use ROp::*;
+        f.write_str(match self {
+            DotDot => "..",
+            Colon => ":",
+            ColonColon => "::",
+            EqualSign => "=",
+            Backslash => "\\",
+            Pipe => "|",
+            LeftArrow => "<-",
+            RightArrow => "->",
+            AtSign => "@",
+            Tilde => "~",
+            DoubleRightArrow => "=>",
+        })
+    }
 }
