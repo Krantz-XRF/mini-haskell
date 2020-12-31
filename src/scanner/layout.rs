@@ -18,11 +18,9 @@
 
 //! Haskell layout: see "Haskell 2010 Report, 10.3 Layout".
 
-use crate::scanner::{FatLexemeIterator, Range};
-use crate::lexeme::{Lexeme, Lexeme::*};
-use crate::scanner::layout::LastLexeme::StartOfFile;
-use std::iter::Peekable;
-use crate::lexeme::RId::Module;
+use super::{Range, LexError, Scanner, Location};
+use crate::lexeme::{Lexeme, Lexeme::*, RId::Module};
+use crate::utils::Result3::*;
 
 enum LastLexeme {
     LetWhereDoOf,
@@ -46,14 +44,14 @@ pub enum EnrichedLexeme {
 /// Lexeme stream enriched with `{n}` and `<n>`.
 /// See "Haskell 2010 Report, 10.3 Layout".
 pub struct EnrichedLexemeIterator<'a, I: std::io::Read> {
-    iterator: Peekable<&'a mut FatLexemeIterator<I>>,
+    iterator: std::iter::Peekable<&'a mut FatLexemeIterator<I>>,
     last_lexeme: LastLexeme,
     last_line: usize,
 }
 
 impl<'a, I: std::io::Read> From<&'a mut FatLexemeIterator<I>> for EnrichedLexemeIterator<'a, I> {
     fn from(iterator: &'a mut FatLexemeIterator<I>) -> Self {
-        Self { iterator: iterator.peekable(), last_lexeme: StartOfFile, last_line: 0 }
+        Self { iterator: iterator.peekable(), last_lexeme: LastLexeme::StartOfFile, last_line: 0 }
     }
 }
 
@@ -111,14 +109,94 @@ impl<'a, I: std::io::Read> Iterator for EnrichedLexemeIterator<'a, I> {
     }
 }
 
+/// An iterator of lexemes from an [`Input`] stream.
+pub struct RawLexemeIterator<I: std::io::Read> {
+    scanner: Scanner<I>,
+    error: Option<LexError>,
+}
+
+impl<I: std::io::Read> Iterator for RawLexemeIterator<I> {
+    type Item = Lexeme;
+    fn next(&mut self) -> Option<Lexeme> {
+        self.enriched_next(|_| ()).map(|t| t.0)
+    }
+}
+
+impl<I: std::io::Read> From<Scanner<I>> for RawLexemeIterator<I> {
+    fn from(scanner: Scanner<I>) -> Self {
+        Self {
+            error: None,
+            scanner,
+        }
+    }
+}
+
+impl<I: std::io::Read> RawLexemeIterator<I> {
+    /// Create a new lexeme iterator from raw input.
+    pub fn new(input: I) -> Self { Self::from(Scanner::new(input)) }
+    /// Get back the internal scanner of this iterator.
+    pub fn into_scanner(self) -> (Option<LexError>, Scanner<I>) { (self.error, self.scanner) }
+    fn enriched_next<T>(&mut self, proc: impl FnOnce(&Scanner<I>) -> T) -> Option<(Lexeme, T)> {
+        if self.error.is_some() { return None; }
+        // possibly consume whitespaces and ignore errors.
+        let _ = self.scanner.whitespace();
+        // for the fat iterator to insert a statement to get the location.
+        let val = proc(&mut self.scanner);
+        // produce a lexeme.
+        match self.scanner.next_lexeme() {
+            Success(x) => Some((x, val)),
+            RetryLater(_) => None,
+            FailFast(err) => {
+                self.error = Some(err);
+                None
+            }
+        }
+    }
+}
+
+/// A "fat" lexeme iterator, i.e. iterator for lexemes with their location ranges.
+pub struct FatLexemeIterator<I: std::io::Read> {
+    iterator: RawLexemeIterator<I>,
+    location: Location,
+}
+
+impl<I: std::io::Read> Iterator for FatLexemeIterator<I> {
+    type Item = (Lexeme, Range);
+    fn next(&mut self) -> Option<(Lexeme, Range)> {
+        let (x, location) = self.iterator.enriched_next(|s| s.location)?;
+        self.location = location;
+        Some((x, Range {
+            begin: location,
+            end: self.iterator.scanner.location,
+        }))
+    }
+}
+
+impl<I: std::io::Read> From<RawLexemeIterator<I>> for FatLexemeIterator<I> {
+    fn from(iterator: RawLexemeIterator<I>) -> Self {
+        Self {
+            location: iterator.scanner.location,
+            iterator,
+        }
+    }
+}
+
+impl<I: std::io::Read> FatLexemeIterator<I> {
+    /// Create a new lexeme iterator from raw input.
+    pub fn new(input: I) -> Self { Self::from(RawLexemeIterator::<I>::new(input)) }
+    /// Get back the internal scanner of this iterator.
+    pub fn into_scanner(self) -> (Option<LexError>, Scanner<I>) { self.iterator.into_scanner() }
+}
+
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
-    use super::EnrichedLexemeIterator;
-    use crate::scanner::FatLexemeIterator;
-    // use crate::lexeme::Lexeme::{self, *};
-    // use crate::lexeme::RId::*;
-    // use crate::lexeme::ROp::*;
+    use super::RawLexemeIterator;
+    use super::FatLexemeIterator;
+    use crate::lexeme::Lexeme::{self, *};
+    use crate::lexeme::RId::*;
+    use crate::lexeme::ROp::*;
+    use crate::scanner::layout::EnrichedLexemeIterator;
 
     const TEST_SOURCE: &str = indoc! {r#"
         module Main where
@@ -130,8 +208,52 @@ mod tests {
             pure ()
     "#};
 
+    fn expected_lexemes() -> Box<[Lexeme]> {
+        vec![
+            ReservedId(Module),
+            Identifier("Main".to_string()),
+            ReservedId(Where),
+            ReservedId(Import),
+            Identifier("Prelude".to_string()),
+            Identifier("hiding".to_string()),
+            OpenParenthesis,
+            Identifier("Integer".to_string()),
+            CloseParenthesis,
+            Identifier("main".to_string()),
+            ReservedOp(ColonColon),
+            Identifier("IO".to_string()),
+            OpenParenthesis,
+            CloseParenthesis,
+            Identifier("main".to_string()),
+            ReservedOp(EqualSign),
+            ReservedId(Do),
+            Identifier("name".to_string()),
+            ReservedOp(LeftArrow),
+            Identifier("getLine".to_string()),
+            Identifier("putStrLn".to_string()),
+            OpenParenthesis,
+            StringLiteral("Hello, ".to_string()),
+            Operator("<>".to_string()),
+            Identifier("name".to_string()),
+            Operator("<>".to_string()),
+            StringLiteral("!".to_string()),
+            CloseParenthesis,
+            Identifier("pure".to_string()),
+            OpenParenthesis,
+            CloseParenthesis,
+        ].into_boxed_slice()
+    }
+
     #[test]
-    fn test_lexeme_iterator() {
+    fn test_raw_iterator() {
+        let mut it = RawLexemeIterator::new(TEST_SOURCE.as_bytes());
+        assert!(it.by_ref().eq(expected_lexemes().iter().cloned()));
+        let (err, _) = it.into_scanner();
+        assert_eq!(err, None);
+    }
+
+    #[test]
+    fn test_enriched_iterator() {
         let mut it = FatLexemeIterator::new(TEST_SOURCE.as_bytes());
         let mut enriched = EnrichedLexemeIterator::from(&mut it);
         for x in enriched.by_ref() {
