@@ -121,7 +121,7 @@ impl<'a, I: std::io::Read> Iterator for EnrichedLexemeIterator<'a, I> {
     }
 }
 
-/// An iterator of lexemes from an [`Input`] stream.
+/// An iterator of lexemes from an [`Input`](crate::input::Input) stream.
 pub struct RawLexemeIterator<I: std::io::Read> {
     scanner: Scanner<I>,
     error: Option<LexError>,
