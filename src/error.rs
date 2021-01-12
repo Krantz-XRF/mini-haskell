@@ -20,7 +20,6 @@
 
 use num_bigint::BigInt;
 use crate::lexeme::LexemeType;
-use crate::scanner::{LexError, Location, Range};
 
 /// An exhaustive list of compiler errors.
 #[derive(Debug)]
@@ -31,8 +30,8 @@ pub enum Error {
     InputFailure(std::io::Error),
     /// A Unicode character not accepted by the Haskell language.
     InvalidChar(char),
-    /// An error during the tokenization process.
-    InvalidToken(LexError),
+    // An error during the tokenization process.
+    // InvalidToken(LexError),
     /// A lexeme ended prematurely, e.g. EOF in a block comment.
     IncompleteLexeme(LexemeType),
     /// A float literal is too large (or small) to represent.
@@ -55,36 +54,3 @@ pub enum DiagnosticMessage {
     /// Critical errors.
     Error(Error),
 }
-
-/// A diagnostic, with a source location, and an optional source range.
-#[derive(Debug)]
-pub struct Diagnostic {
-    location: Location,
-    range: Option<Range>,
-    message: DiagnosticMessage,
-}
-
-impl Diagnostic {
-    /// Create a new diagnostics.
-    pub fn new(location: Location, message: DiagnosticMessage) -> Diagnostic {
-        Diagnostic { location, message, range: None }
-    }
-
-    /// Add a source range to the report.
-    pub fn within_range(self, range: Range) -> Self {
-        Self { range: Some(range), ..self }
-    }
-
-    /// Add a source range from a `[begin, end)` pair to the report.
-    pub fn within(self, begin: Location, end: Location) -> Self {
-        Self { range: Some(Range { begin, end }), ..self }
-    }
-
-    /// Report to the diagnostics engine.
-    pub fn report(self, engine: &mut DiagnosticsEngine) {
-        engine.push(self)
-    }
-}
-
-/// The diagnostics engine.
-pub type DiagnosticsEngine = Vec<Diagnostic>;

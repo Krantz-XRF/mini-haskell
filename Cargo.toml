@@ -14,7 +14,6 @@ readme = "README.md"
 num-traits = "0.2"
 num-integer = "0.1"
 num-bigint = "0.3"
-unic-ucd-category = "0.9"
 log = { version = "0.4", optional = true }
 
 [dev-dependencies]

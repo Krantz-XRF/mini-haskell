@@ -21,15 +21,9 @@
 #![warn(missing_docs)]
 
 #[macro_use]
-pub mod utils;
-
-#[macro_use]
-pub mod char;
+mod utils;
 
 pub mod lexeme;
-pub mod rc_view;
-pub mod input;
-pub mod scanner;
 pub mod error;
 
 #[cfg(test)]
