@@ -19,7 +19,7 @@
 //! useful common utilities.
 
 /// The uninhabited type `Void`.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Void {}
 
 impl Void {
