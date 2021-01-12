@@ -8,18 +8,19 @@
 
 A toy implementation for Haskell written in Rust.
 
+This branch tries to use [`logos`](https://github.com/maciejhirsz/logos) to replace the hand-written lexer.
+
 ## Current Status
 
 Still work in progress (very early stage):
 
 - [ ] Scanner
-  - [x] Input
-  - [x] Tokenizer
-    - [x] Whitespaces
-    - [x] Identifier
-    - [x] Numeric Literals
-    - [x] Character Literals
-    - [x] String Literals
+  - [ ] Tokenizer
+    - [ ] Whitespaces
+    - [ ] Identifier
+    - [ ] Numeric Literals
+    - [ ] Character Literals
+    - [ ] String Literals
   - [ ] Layout
 - [ ] Parser
   - [ ] AST
