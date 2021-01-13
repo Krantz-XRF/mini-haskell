@@ -20,9 +20,10 @@
 
 /// Haskell `Integer`.
 use std::ops::{Add, Div};
+use std::fmt::{Formatter, Debug, Display};
 use num_bigint::BigInt;
 use num_integer::Integer;
-use std::fmt::{Formatter, Debug, Display};
+use logos::Logos;
 
 /// Haskell module identifier (`M1.M2.(...).Mn`).
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -101,169 +102,126 @@ impl<I: Display> Display for Ratio<I> {
 /// Haskell `Rational`.
 pub type Rational = Ratio<BigInt>;
 
-lexemes! {
+/// Haskell lexemes types.
+#[derive(Debug, Eq, PartialEq)]
+#[derive(logos::Logos)]
+#[logos(subpattern commentCont = r#"[a-z\p{Ll}_A-Z\p{Lu}0-9\p{Nd}(),;\[\]`{}"' \t]"#)]
+#[logos(subpattern any = r#"[a-z\p{Ll}_A-Z\p{Lu}0-9\p{Nd}!#$%&*+./<=>?@\^|-~:\p{S}\p{P}(),;\[\]`{}"' \t]"#)]
+#[logos(subpattern ANYnodash = r#"[a-z\p{Ll}_A-Z\p{Lu}0-9\p{Nd}!#$%&*+./<=>?@\^|~:\p{S}\p{P}(),;\[\]`{}"'\r\n\f\v\t \p{Whitespace}]"#)]
+#[logos(subpattern newline = r#"\r\n|\r|\n|\f"#)]
+#[logos(subpattern id = r#"[a-z\p{Ll}_A-Z\p{Lu}][a-z\p{Ll}A-Z\p{Lu}0-9\p{Nd}_']*"#)]
+#[logos(subpattern varid = r#"[a-z\p{Ll}_][a-z\p{Ll}A-Z\p{Lu}0-9\p{Nd}_']*"#)]
+#[logos(subpattern modid = r#"[A-Z\p{Lu}][a-z\p{Ll}A-Z\p{Lu}0-9\p{Nd}_']*"#)]
+#[logos(subpattern symbol = r#"[[!#$%&*+\./<=>?@\^|-~:\p{S}\p{P}]&&[^_"'(),;\[\]`{}]]"#)]
+pub enum Lexeme {
     /// Whitespaces.
+    #[regex(r"(\r\n|\r|\n|\f|\v| |\t|\p{Whitespace})+")]
     Whitespace,
+    /// Line comments.
+    #[regex(r"---*((?&commentCont)(?&any)*)?(?&newline)")]
+    Comment,
+    /// Comment blocks.
+    #[regex(r"\{-", ncomment)]
+    NComment,
     /// Identifiers.
-    Identifier(String),
+    #[regex(r"(?&id)", priority = 2)]
+    Identifier,
     /// Operators.
-    Operator(String),
+    #[regex(r"(?&symbol)+")]
+    Operator,
     /// Qualified Identifiers.
-    QIdentifier(QName),
+    #[regex(r"(?&modid)(\.(?&modid))*(\.(?&varid))?")]
+    QIdentifier,
     /// Qualified Operators.
-    QOperator(QName),
+    #[regex(r"(?&modid)(\.(?&modid))*\.(?&symbol)+")]
+    QOperator,
     /// Integers.
-    Integer(BigInt),
+    Integer,
     /// Rationals.
-    Float(Rational),
+    Float,
     /// Character literals.
-    CharLiteral(char),
+    CharLiteral,
     /// String literals.
-    StringLiteral(String),
+    StringLiteral,
     /// Reserved keywords.
-    ReservedId(RId),
+    ReservedId,
     /// Reserved operators.
-    ReservedOp(ROp),
-    /// Commas (`,`).
-    Comma,
-    /// Semicolons (`;`).
-    Semicolon,
-    /// Back-ticks (`` ` ``).
-    Backtick,
-    /// Open curly brackets (`{`).
-    OpenCurlyBracket,
-    /// Close curly brackets (`}`).
-    CloseCurlyBracket,
-    /// Open parenthesis (`(`).
-    OpenParenthesis,
-    /// Close parenthesis (`)`).
-    CloseParenthesis,
-    /// Open square brackets (`[`).
-    OpenSquareBracket,
-    /// Close square brackets (`]`).
-    CloseSquareBracket,
+    ReservedOp,
+    /// Special characters.
+    Special,
+    /// Invalid byte sequence.
+    #[error]
+    Invalid,
 }
 
-impl Display for Lexeme {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        use Lexeme::*;
-        match self {
-            Whitespace => write!(f, "<whitespace>"),
-            Identifier(s) => write!(f, "{}", s),
-            Operator(op) => write!(f, "{}", op),
-            QIdentifier(name) => write!(f, "{}", name),
-            QOperator(name) => write!(f, "{}", name),
-            Integer(n) => write!(f, "fromIntegral {}", n),
-            Float(q) => write!(f, "fromRational ({})", q),
-            CharLiteral(c) => write!(f, "{:?}", c),
-            StringLiteral(s) => write!(f, "{:?}", s),
-            ReservedId(id) => write!(f, "{}", id),
-            ReservedOp(op) => write!(f, "{}", op),
-            Comma => write!(f, ","),
-            Semicolon => write!(f, ";"),
-            Backtick => write!(f, "`"),
-            OpenCurlyBracket => write!(f, "{{"),
-            CloseCurlyBracket => write!(f, "}}"),
-            OpenParenthesis => write!(f, "("),
-            CloseParenthesis => write!(f, ")"),
-            OpenSquareBracket => write!(f, "["),
-            CloseSquareBracket => write!(f, "]"),
+#[derive(Debug, logos::Logos)]
+#[logos(extras = usize)]
+enum NComment {
+    #[regex(r"\{-+")]
+    Start,
+    #[regex(r"-+\}")]
+    End,
+    #[regex(r"[^{}-]+")]
+    Content,
+    #[regex(r"-+")]
+    Dashes,
+    #[regex(r"\{|\}")]
+    Brackets,
+    #[error]
+    Invalid,
+}
+
+fn ncomment(lex: &mut logos::Lexer<Lexeme>) -> Option<()> {
+    let mut new_lex = NComment::lexer(lex.remainder());
+    new_lex.extras = 1;
+    let mut result = Some(());
+    while new_lex.extras > 0 {
+        match new_lex.next() {
+            Some(NComment::Start) => new_lex.extras += 1,
+            Some(NComment::End) => new_lex.extras -= 1,
+            None => {
+                result = None;
+                break;
+            }
+            _ => (),
         }
     }
+    lex.bump(new_lex.span().end);
+    result
 }
 
-/// Haskell Reserved Keywords.
-#[allow(missing_docs)]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum RId {
-    Case,
-    Class,
-    Data,
-    Default,
-    Deriving,
-    Do,
-    Else,
-    Foreign,
-    If,
-    Import,
-    In,
-    Infix,
-    Infixl,
-    Infixr,
-    Instance,
-    Let,
-    Module,
-    Newtype,
-    Of,
-    Then,
-    Type,
-    Where,
-    Wildcard,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use logos::Logos;
 
-impl Display for RId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        use RId::*;
-        f.write_str(match self {
-            Case => "case",
-            Class => "class",
-            Data => "data",
-            Default => "default",
-            Deriving => "deriving",
-            Do => "do",
-            Else => "else",
-            Foreign => "foreign",
-            If => "if",
-            Import => "import",
-            In => "in",
-            Infix => "infix",
-            Infixl => "infixl",
-            Infixr => "infixr",
-            Instance => "instance",
-            Let => "let",
-            Module => "module",
-            Newtype => "newtype",
-            Of => "of",
-            Then => "then",
-            Type => "type",
-            Where => "where",
-            Wildcard => "wildcard",
-        })
+    fn generic_test_on(input: &str, result: Lexeme, slice: &str) {
+        let mut lexer = Lexeme::lexer(input);
+        assert_eq!(lexer.next(), Some(result));
+        assert_eq!(lexer.slice(), slice);
     }
-}
 
-/// Haskell Reserved Operators.
-#[allow(missing_docs)]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum ROp {
-    DotDot,
-    Colon,
-    ColonColon,
-    EqualSign,
-    Backslash,
-    Pipe,
-    LeftArrow,
-    RightArrow,
-    AtSign,
-    Tilde,
-    DoubleRightArrow,
-}
+    fn test_on(input: &str, result: Lexeme) {
+        generic_test_on(input, result, input)
+    }
 
-impl Display for ROp {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        use ROp::*;
-        f.write_str(match self {
-            DotDot => "..",
-            Colon => ":",
-            ColonColon => "::",
-            EqualSign => "=",
-            Backslash => "\\",
-            Pipe => "|",
-            LeftArrow => "<-",
-            RightArrow => "->",
-            AtSign => "@",
-            Tilde => "~",
-            DoubleRightArrow => "=>",
-        })
+    #[test]
+    fn test_whitespace() {
+        test_on(" \r\n\n\r\t\u{C}", Lexeme::Whitespace);
+        test_on("--- | test comment here\n", Lexeme::Comment);
+        test_on("{- some {{-- nest -- -} block comment -}", Lexeme::NComment);
+    }
+
+    #[test]
+    fn test_identifiers() {
+        test_on("some'Identifier_42", Lexeme::Identifier);
+        test_on("Ctor_''233'_", Lexeme::Identifier);
+        test_on("Mod.SubMod.Class", Lexeme::QIdentifier);
+        test_on("Mod.SubMod.Type.function", Lexeme::QIdentifier);
+        test_on("+", Lexeme::Operator);
+        test_on(".", Lexeme::Operator);
+        test_on("F.+", Lexeme::QOperator);
+        test_on("F..", Lexeme::QOperator);
+        generic_test_on("F.", Lexeme::Identifier, "F");
     }
 }

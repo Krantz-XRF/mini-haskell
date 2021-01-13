@@ -18,45 +18,6 @@
 
 //! useful common utilities.
 
-macro_rules! lexemes {
-    { $($ps: tt)* } => {
-        lexeme_types! { $($ps)* }
-        lexeme_concrete! { $($ps)* }
-    }
-}
-
-macro_rules! lexeme_types {
-    { $( $(#[$meta: meta])* $l: ident $(($($t: ty),*))? ),* $(,)? } => {
-        /// Lexeme type labels.
-        #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-        pub enum LexemeType {
-            $( $(#[$meta])* $l ),*
-        }
-    }
-}
-
-macro_rules! wildcard_from {
-    ($($t: tt)*) => { .. }
-}
-
-macro_rules! lexeme_concrete {
-    { $( $(#[$meta: meta])* $l: ident $(($($t: ty),*))? ),* $(,)? } => {
-        /// Concrete lexeme type.
-        #[derive(Clone, Eq, PartialEq, Debug)]
-        pub enum Lexeme {
-            $( $(#[$meta])* $l $(($($t),*))? ),*
-        }
-        impl Lexeme {
-            /// Get lexeme type from a concrete lexeme.
-            pub fn get_type(&self) -> LexemeType {
-                match self {
-                    $( Lexeme::$l $((wildcard_from!($($t),*)))? => LexemeType::$l ),*
-                }
-            }
-        }
-    }
-}
-
 #[cfg(all(test, feature = "log"))]
 mod log_init {
     use std::sync::Once;
@@ -77,9 +38,11 @@ mod log_init {
 }
 
 #[cfg(all(test, feature = "log"))]
+#[allow(dead_code)]
 pub use log_init::setup_logger;
 
 #[cfg(all(test, not(feature = "log")))]
+#[allow(dead_code)]
 pub fn setup_logger() {}
 
 #[allow(unused_macros)]

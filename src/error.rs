@@ -19,7 +19,7 @@
 //! error reporting for the mini-Haskell compiler.
 
 use num_bigint::BigInt;
-use crate::lexeme::LexemeType;
+use crate::lexeme::Lexeme;
 
 /// An exhaustive list of compiler errors.
 #[derive(Debug)]
@@ -33,7 +33,7 @@ pub enum Error {
     // An error during the tokenization process.
     // InvalidToken(LexError),
     /// A lexeme ended prematurely, e.g. EOF in a block comment.
-    IncompleteLexeme(LexemeType),
+    IncompleteLexeme(Lexeme),
     /// A float literal is too large (or small) to represent.
     ///
     /// **Note**:
