@@ -2,7 +2,7 @@
 
 [![language](https://img.shields.io/badge/language-Rust-red)](https://www.rust-lang.org/)
 [![license](https://img.shields.io/badge/License-AGPL--v3.0-blueviolet)](https://www.gnu.org/licenses/agpl-3.0.html)
-[![Build](![Build](https://github.com/Krantz-XRF/mini-haskell/workflows/Build/badge.svg?branch=scanner-logos))](https://github.com/Krantz-XRF/mini-haskell/actions?query=workflow%3ABuild)
+[![Build](https://github.com/Krantz-XRF/mini-haskell/workflows/Build/badge.svg?branch=scanner-logos)](https://github.com/Krantz-XRF/mini-haskell/actions?query=workflow%3ABuild)
 [![docs](https://img.shields.io/badge/Doc-GitHub%20Pages-brightgreen)](https://krantz-xrf.github.io/mini-haskell/)
 ![version](https://img.shields.io/badge/WIP-0.1-yellow)
 
