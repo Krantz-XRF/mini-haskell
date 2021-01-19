@@ -74,7 +74,7 @@ impl Location {
 
     /// Start a new line.
     pub fn newline(&mut self) {
-        self.column = 0;
+        self.column = 1;
         self.line += 1;
     }
 

@@ -49,7 +49,7 @@ impl<I: Iterator> IterStream<I> {
     }
 
     fn prepare(&mut self, n: usize) -> Option<()> {
-        while self.buffer.len() < n {
+        while self.buffer.len() <= n {
             self.buffer.push_back(self.raw_iter.next()?)
         }
         Some(())
