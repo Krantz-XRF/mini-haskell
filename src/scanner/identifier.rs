@@ -19,7 +19,7 @@
 //! identifiers: see "Haskell 2010 Report: 2.4 Identifiers and Operators".
 
 use super::{Scanner, Result, basic::*};
-use crate::char::{CharPredicate, Stream};
+use crate::utils::char::{CharPredicate, Stream};
 use crate::lexeme::{RId, ROp, Lexeme, QName, ModuleId};
 use crate::lexeme::Lexeme::{ReservedId, ReservedOp, Identifier, Operator, QIdentifier, QOperator};
 

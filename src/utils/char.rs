@@ -1,6 +1,6 @@
 /*
  * mini-haskell: light-weight Haskell for fun
- * Copyright (C) 2020  Xie Ruifeng
+ * Copyright (C) 2021  Xie Ruifeng
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -111,7 +111,7 @@ impl CharPredicate for char {
 /// A character range (half open), used as a candidate for [`CharPredicate`].
 ///
 /// ```
-/// # use mini_haskell::char::CharPredicate;
+/// # use mini_haskell::utils::char::CharPredicate;
 /// assert_eq!(('a' .. 'z').check('a'), true);
 /// assert_eq!(('a' .. 'z').check('z'), false);
 /// ```
@@ -120,7 +120,7 @@ pub type CharRange = std::ops::Range<char>;
 /// A character range (closed), used as a candidate for [`CharPredicate`].
 ///
 /// ```
-/// # use mini_haskell::char::CharPredicate;
+/// # use mini_haskell::utils::char::CharPredicate;
 /// assert_eq!(('a' ..= 'z').check('a'), true);
 /// assert_eq!(('a' ..= 'z').check('z'), true);
 /// assert_eq!(('a' ..= 'z').check('3'), false);
@@ -165,7 +165,7 @@ impl<P: CharPredicate> CharPredicate for NotPred<P> {
 #[allow(unused_macros)]
 macro_rules! not {
     ($p: expr) => {
-        $crate::char::NotPred($p)
+        $crate::utils::char::NotPred($p)
     };
 }
 
@@ -183,7 +183,7 @@ impl<P: CharPredicate, Q: CharPredicate> CharPredicate for OrPred<P, Q> {
 macro_rules! any {
     ($p: expr) => { $p };
     ($p: expr, $($ps: expr),+) => {
-        $crate::char::OrPred($p, any!($($ps),+))
+        $crate::utils::char::OrPred($p, any!($($ps),+))
     }
 }
 
@@ -201,7 +201,7 @@ impl<P: CharPredicate, Q: CharPredicate> CharPredicate for AndPred<P, Q> {
 macro_rules! all {
     ($p: expr) => { $p };
     ($p: expr, $($ps: expr),+) => {
-        $crate::char::AndPred($p, all!($($ps),+))
+        $crate::utils::char::AndPred($p, all!($($ps),+))
     }
 }
 
@@ -210,7 +210,7 @@ macro_rules! alias {
         $(
             $($(#[$meta])* pub)?
             struct $p;
-            impl $crate::char::CharPredicate for $p {
+            impl $crate::utils::char::CharPredicate for $p {
                 fn check(&self, x: char) -> bool { $e.check(x) }
             }
         )+

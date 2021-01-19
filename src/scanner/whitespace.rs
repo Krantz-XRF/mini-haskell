@@ -20,7 +20,7 @@
 //! "Haskell 2010 Report: 2.3 Comments".
 
 use super::{Result, Scanner, basic::Symbol};
-use crate::char::{CharPredicate, Unicode, Stream};
+use crate::utils::char::{CharPredicate, Unicode, Stream};
 use crate::error::{DiagnosticMessage::Error, Error::IncompleteLexeme, Diagnostic};
 use crate::lexeme::LexemeType::Whitespace;
 

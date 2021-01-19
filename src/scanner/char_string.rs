@@ -23,7 +23,7 @@ use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
 use super::{Scanner, Result, basic::*};
-use crate::char::{Stream, CharPredicate, Ascii};
+use crate::utils::char::{Stream, CharPredicate, Ascii};
 use crate::error::Diagnostic;
 use crate::error::DiagnosticMessage::Error;
 use crate::error::Error::CharOutOfBound;

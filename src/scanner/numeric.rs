@@ -23,7 +23,7 @@ use super::{Scanner, Result, basic::*};
 use num_bigint::BigInt;
 use num_traits::{identities::Zero, ToPrimitive, Signed};
 
-use crate::char::{CharPredicate, Stream};
+use crate::utils::char::{CharPredicate, Stream};
 use crate::lexeme::{Rational, Lexeme};
 use crate::lexeme::Lexeme::{Integer, Float};
 use crate::error::Diagnostic;

@@ -28,14 +28,14 @@ pub mod layout;
 
 use std::fmt::{Formatter, Display};
 use crate::utils::*;
+use crate::utils::Result3::{FailFast, RetryLater};
+use crate::utils::char::{CharPredicate, Stream};
 use crate::input::Input;
 use crate::lexeme::{LexemeType, Lexeme};
-use crate::char::{CharPredicate, Stream};
 use crate::error::{
     Diagnostic, DiagnosticsEngine, DiagnosticMessage::Error,
     Error::{InvalidUTF8, InputFailure, InvalidChar},
 };
-use crate::utils::Result3::{FailFast, RetryLater};
 use crate::scanner::basic::Any;
 
 /// Source location.

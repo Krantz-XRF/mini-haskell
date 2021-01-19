@@ -19,7 +19,7 @@
 //! special: see "Haskell 2010 Report: 2.2 Lexical Program Structure".
 
 use super::{Scanner, Result};
-use crate::char::{Stream, CharPredicate};
+use crate::utils::char::{Stream, CharPredicate};
 use crate::lexeme::Lexeme::{self, *};
 
 impl<I: std::io::Read> Scanner<I> {

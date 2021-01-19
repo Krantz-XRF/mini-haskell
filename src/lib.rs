@@ -23,9 +23,6 @@
 #[macro_use]
 pub mod utils;
 
-#[macro_use]
-pub mod char;
-
 pub mod lexeme;
 pub mod rc_view;
 pub mod input;

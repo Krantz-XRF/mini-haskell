@@ -18,7 +18,7 @@
 
 //! basic character classes in "Haskell 2010 Report, 2.2 Lexical Program Structure".
 
-use crate::char::{Ascii, Unicode};
+use crate::utils::char::{Ascii, Unicode};
 
 alias! {
     /// see "Haskell 2010 Report, 2.2 Lexical Program Structure".
