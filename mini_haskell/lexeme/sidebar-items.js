@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Lexeme","Concrete lexeme type."],["LexemeType","Lexeme type labels."],["RId","Haskell Reserved Keywords."],["ROp","Haskell Reserved Operators."]],"struct":[["ModuleId","Haskell module identifier (`M1.M2.(...).Mn`)."],["QName","Haskell qualified names (`MId.name`)."],["Ratio","Haskell `Ratio`."]],"type":[["Rational","Haskell `Rational`."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["DiagnosticMessage","A diagnostic message (body)."],["Error","An exhaustive list of compiler errors."]],"struct":[["Diagnostic","A diagnostic, with a source location, and an optional source range."]],"type":[["DiagnosticsEngine","The diagnostics engine."]]});

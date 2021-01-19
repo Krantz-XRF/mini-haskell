@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["MAXIMUM_EXPONENT","Maximum allowed exponent in a floating number."]]});

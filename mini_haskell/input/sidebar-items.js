@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Input","Input with the ability to read one character once. Keeping such an iterator will prevent releasing the input resource."],["RawInput","A \"raw\" input."]]});

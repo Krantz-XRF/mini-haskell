@@ -1,0 +1,9 @@
+(function() {var implementors = {};
+implementors["mini_haskell"] = [{"text":"impl Copy for Void","synthetic":false,"types":[]},{"text":"impl&lt;T:&nbsp;Copy, E:&nbsp;Copy, M:&nbsp;Copy&gt; Copy for Result3&lt;T, E, M&gt;","synthetic":false,"types":[]},{"text":"impl Copy for LexemeType","synthetic":false,"types":[]},{"text":"impl Copy for RId","synthetic":false,"types":[]},{"text":"impl Copy for ROp","synthetic":false,"types":[]},{"text":"impl Copy for Location","synthetic":false,"types":[]},{"text":"impl Copy for Range","synthetic":false,"types":[]},{"text":"impl Copy for LexError","synthetic":false,"types":[]}];
+implementors["num_bigint"] = [{"text":"impl Copy for Sign","synthetic":false,"types":[]},{"text":"impl&lt;T:&nbsp;Copy&gt; Copy for TryFromBigIntError&lt;T&gt;","synthetic":false,"types":[]}];
+implementors["num_integer"] = [{"text":"impl&lt;A:&nbsp;Copy&gt; Copy for ExtendedGcd&lt;A&gt;","synthetic":false,"types":[]}];
+implementors["unic_char_property"] = [{"text":"impl&lt;V:&nbsp;Copy + 'static&gt; Copy for CharDataTable&lt;V&gt;","synthetic":false,"types":[]}];
+implementors["unic_char_range"] = [{"text":"impl Copy for CharRange","synthetic":false,"types":[]}];
+implementors["unic_common"] = [{"text":"impl Copy for UnicodeVersion","synthetic":false,"types":[]}];
+implementors["unic_ucd_category"] = [{"text":"impl Copy for GeneralCategory","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

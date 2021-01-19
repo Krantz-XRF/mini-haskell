@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["PKG_DESCRIPTION","UNIC component description."],["PKG_NAME","UNIC component name."],["PKG_VERSION","UNIC component version."],["UNICODE_VERSION","The Unicode version of data"]],"enum":[["GeneralCategory","Represents the Unicode Character `General_Category` property."]]});

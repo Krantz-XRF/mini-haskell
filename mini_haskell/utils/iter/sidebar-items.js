@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["IterStream","Make a stream from an iterator."],["IterStreamMultiPeek","A special [`IterStream`] where consecutive `peek`s return consecutive items from the stream."]]});
