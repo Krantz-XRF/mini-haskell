@@ -61,6 +61,20 @@ impl<I: Iterator> IterStream<I> {
         Some(&self.buffer[n])
     }
 
+    /// Unwraps the [`IterStream`] and get back the underlying iterator.
+    /// # Panics
+    /// Panics if there are items already peeked but not consumed yet.
+    pub fn unwrap(self) -> I {
+        assert!(self.buffer.is_empty());
+        self.raw_iter
+    }
+
+    /// Unwraps the [`IterStream`] and get back the underlying iterator
+    /// and, if any, items already peeked but not consumed yet.
+    pub fn unwrap_full(self) -> (I, impl IntoIterator<Item=I::Item>) {
+        (self.raw_iter, self.buffer)
+    }
+
     /// Begin the multi-peek mode.
     pub fn multi_peek(&mut self) -> IterStreamMultiPeek<I> {
         IterStreamMultiPeek {

@@ -36,3 +36,4 @@ pub use control::Either;
 pub use control::Maybe;
 pub use control::Result3;
 pub use misc::*;
+pub use logging::*;
