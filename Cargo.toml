@@ -7,6 +7,7 @@ repository = "https://github.com/Krantz-XRF/mini-haskell.git"
 homepage = "https://github.com/Krantz-XRF/mini-haskell.git"
 license = "AGPL-3.0-or-later"
 readme = "README.md"
+description = "A toy implementation for Haskell in Rust."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,12 +17,19 @@ num-integer = "0.1"
 num-bigint = "0.3"
 unic-ucd-category = "0.9"
 log = { version = "0.4", optional = true }
+clap = { version = "2.33", optional = true }
 
 [dev-dependencies]
 indoc = "1.0"
+expect-test = "1.1"
 env_logger = "0.8"
 log = "0.4"
 
 [features]
 scanner_trace = ["log"]
 trace = ["scanner_trace"]
+cli = ["clap"]
+
+[[bin]]
+name = "mini-haskell"
+required-features = ["cli"]
