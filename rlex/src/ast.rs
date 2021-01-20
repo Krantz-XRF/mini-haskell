@@ -16,7 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Procedural macros for defining lexers.
+//! `rlex` abstract syntax types.
 
-mod ast;
+pub mod char_class;
 
+pub use char_class::UnicodeCharClass;
