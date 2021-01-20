@@ -14,3 +14,4 @@ readme = "README.md"
 proc-macro = true
 
 [dependencies]
+proc-macro2 = "1.0"
