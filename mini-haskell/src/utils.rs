@@ -77,9 +77,11 @@ mod log_init {
 }
 
 #[cfg(all(test, feature = "log"))]
+#[allow(dead_code)]
 pub use log_init::setup_logger;
 
 #[cfg(all(test, not(feature = "log")))]
+#[allow(dead_code)]
 pub fn setup_logger() {}
 
 #[allow(unused_macros)]
