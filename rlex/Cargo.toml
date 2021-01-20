@@ -1,5 +1,5 @@
 [package]
-name = "mini-haskell"
+name = "rlex"
 version = "0.1.0"
 authors = ["Xie Ruifeng <Krantz.XRF@outlook.com>"]
 edition = "2018"
@@ -10,17 +10,7 @@ readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+proc-macro = true
+
 [dependencies]
-num-traits = "0.2"
-num-integer = "0.1"
-num-bigint = "0.3"
-log = { version = "0.4", optional = true }
-
-[dev-dependencies]
-indoc = "1.0"
-env_logger = "0.8"
-log = "0.4"
-
-[features]
-scanner_trace = ["log"]
-trace = ["scanner_trace"]
