@@ -16,19 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Procedural macros for defining lexers.
+// Use this to avoid editing these generated sub-modules.
+#![allow(clippy::redundant_static_lifetimes)]
 
-mod ast;
-mod unicode_tables;
+pub mod general_category;
+pub mod property_bool;
+pub mod property_names;
+pub mod property_values;
 
-/// `rlex! { ... }` will generate a DFA-based lexer.
-#[proc_macro]
-pub fn rlex(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = proc_macro2::TokenStream::from(tokens);
-    let output = rlex_impl(input);
-    proc_macro::TokenStream::from(output)
-}
-
-fn rlex_impl(_input: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
-    todo!()
-}
+pub const GEN_CATS: &[(&str, &str)] = property_values::PROPERTY_VALUES[0].1;
