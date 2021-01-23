@@ -37,23 +37,6 @@ type Result<T> = std::result::Result<T, syn::Error>;
 /// `RegEx a = fix (RegOp a)`.
 pub struct RegEx<A>(RegOp<A, RegEx<A>>);
 
-impl<A> RegEx<A> {
-    /// `fmap` for functors.
-    pub fn fmap<B>(self, f: impl Fn(A) -> B) -> RegEx<B> {
-        RegEx(self.0.bimap(&f, |r| r.fmap(&f)))
-    }
-
-    /// `fold` for fixed points.
-    pub fn fold<B>(self, f: impl Fn(RegOp<A, B>) -> B) -> B {
-        f(self.0.bimap(std::convert::identity, |r| r.fold(&f)))
-    }
-
-    /// `unfold` for fixed points.
-    pub fn unfold<B>(x: B, f: impl Fn(B) -> RegOp<A, B>) -> RegEx<A> {
-        RegEx(f(x).bimap(std::convert::identity, |r| RegEx::unfold(r, &f)))
-    }
-}
-
 impl<A: Display> Pretty for RegEx<A> {
     type Context = usize;
     fn pretty_fmt(&self, f: &mut Formatter<'_>, n: usize) -> std::fmt::Result {

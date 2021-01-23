@@ -87,17 +87,3 @@ impl<A: Display, R: Pretty<Context=usize>> Display for RegOp<A, R> {
         self.pretty_fmt(f, 0)
     }
 }
-
-impl<A, R> RegOp<A, R> {
-    /// `bimap` for bifunctors.
-    pub fn bimap<B, S>(self, f: impl Fn(A) -> B, g: impl Fn(R) -> S) -> RegOp<B, S> {
-        use RegOp::*;
-        match self {
-            Atom(x) => Atom(f(x)),
-            Alt(xs) => Alt(xs.into_iter().map(g).collect()),
-            Concat(xs) => Concat(xs.into_iter().map(g).collect()),
-            Some(x) => Some(Box::new(g(*x))),
-            Optional(x) => Optional(Box::new(g(*x))),
-        }
-    }
-}
