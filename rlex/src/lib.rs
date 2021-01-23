@@ -19,6 +19,7 @@
 //! Procedural macros for defining lexers.
 
 mod ast;
+mod syntax;
 mod unicode_tables;
 
 /// `rlex! { ... }` will generate a DFA-based lexer.
