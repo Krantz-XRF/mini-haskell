@@ -55,6 +55,17 @@ impl UnicodeCharRange {
             end: end as u32,
         }
     }
+
+    /// Create a new [`UnicodeCharRange`], both endpoints included.
+    pub fn from_raw(begin: u32, end: u32) -> Self {
+        UnicodeCharRange { begin, end }
+    }
+}
+
+impl From<char> for UnicodeCharRange {
+    fn from(c: char) -> Self {
+        UnicodeCharRange::new(c, c)
+    }
 }
 
 impl From<std::ops::Range<char>> for UnicodeCharRange {
@@ -94,12 +105,28 @@ pub struct UnicodeCharClass {
 
 impl Display for UnicodeCharClass {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[")?;
+        let no_bracket = self.intervals.len() == 1 &&
+            self.intervals[0].begin + 1 != self.intervals[0].end;
+        if !no_bracket { write!(f, "[")?; }
         for r in self.intervals.iter() {
             write!(f, "{}", r)?;
         }
-        write!(f, "]")
+        if !no_bracket { write!(f, "]")?; }
+        Ok(())
     }
+}
+
+impl UnicodeCharClass {
+    pub fn empty() -> Self { UnicodeCharClass { intervals: Vec::new() } }
+    pub fn from_sorted(intervals: Vec<UnicodeCharRange>) -> Self { UnicodeCharClass { intervals } }
+}
+
+impl From<char> for UnicodeCharClass {
+    fn from(c: char) -> Self { UnicodeCharClass { intervals: vec![c.into()] } }
+}
+
+impl From<UnicodeCharRange> for UnicodeCharClass {
+    fn from(r: UnicodeCharRange) -> Self { UnicodeCharClass { intervals: vec![r] } }
 }
 
 impl From<Vec<UnicodeCharRange>> for UnicodeCharClass {
