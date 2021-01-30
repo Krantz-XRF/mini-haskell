@@ -19,12 +19,13 @@
 //! Unicode character classes.
 
 use std::fmt::{Display, Formatter};
+use crate::ast::op::Pretty;
 
 /// Unicode character ranges, inclusive for `begin`, exclusive for `end`.
 #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Copy, Clone)]
 pub struct UnicodeCharRange {
-    begin: u32,
-    end: u32,
+    pub(super) begin: u32,
+    pub(super) end: u32,
 }
 
 impl Display for UnicodeCharRange {
@@ -36,6 +37,21 @@ impl Display for UnicodeCharRange {
                    unsafe { std::char::from_u32_unchecked(self.begin) },
                    unsafe { std::char::from_u32_unchecked(self.end - 1) })
         }
+    }
+}
+
+pub struct EndPointIter {
+    range: [u32; 2],
+    index: usize,
+}
+
+impl Iterator for EndPointIter {
+    type Item = u32;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= 2 { return None; }
+        let res = Some(self.range[self.index]);
+        self.index += 1;
+        res
     }
 }
 
@@ -54,6 +70,11 @@ impl UnicodeCharRange {
             begin: begin as u32,
             end: end as u32,
         }
+    }
+
+    /// Iterate through both end points.
+    pub fn end_points(&self) -> EndPointIter {
+        EndPointIter { range: [self.begin, self.end], index: 0 }
     }
 
     /// Create a new [`UnicodeCharRange`], both endpoints included.
@@ -116,9 +137,25 @@ impl Display for UnicodeCharClass {
     }
 }
 
+impl Pretty for UnicodeCharClass {
+    type Context = ();
+    fn pretty_fmt(&self, f: &mut Formatter<'_>, _: ()) -> std::fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
 impl UnicodeCharClass {
     pub fn empty() -> Self { UnicodeCharClass { intervals: Vec::new() } }
     pub fn from_sorted(intervals: Vec<UnicodeCharRange>) -> Self { UnicodeCharClass { intervals } }
+    pub fn iter(&self) -> impl Iterator<Item=&UnicodeCharRange> { self.intervals.iter() }
+}
+
+impl IntoIterator for UnicodeCharClass {
+    type Item = UnicodeCharRange;
+    type IntoIter = <Vec<UnicodeCharRange> as IntoIterator>::IntoIter;
+    fn into_iter(self) -> Self::IntoIter {
+        self.intervals.into_iter()
+    }
 }
 
 impl From<char> for UnicodeCharClass {

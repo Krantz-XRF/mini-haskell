@@ -25,26 +25,87 @@ pub use char_class::UnicodeCharClass;
 pub use op::RegOp;
 
 use std::convert::{TryFrom, TryInto};
+use std::fmt::{Display, Formatter};
+use std::collections::BTreeSet;
 use syn::{LitChar, LitStr};
+
 use crate::syntax::*;
 use crate::ast::char_class::UnicodeCharRange;
-use syn::__private::fmt::Display;
-use syn::__private::Formatter;
-use crate::ast::op::Pretty;
+use crate::ast::op::{Pretty, ForEach};
 
 type Result<T> = std::result::Result<T, syn::Error>;
 
 /// `RegEx a = fix (RegOp a)`.
 pub struct RegEx<A>(RegOp<A, RegEx<A>>);
 
-impl<A: Display> Pretty for RegEx<A> {
+impl<A> ForEach for RegEx<A> {
+    type Item = A;
+    fn for_each(&self, f: &mut impl FnMut(&A)) {
+        self.0.for_each(f)
+    }
+}
+
+impl<A> RegEx<A> {
+    pub fn fmap<B>(self, f: &impl Fn(A) -> B) -> RegEx<B> {
+        RegEx(self.0.bimap(f, |r| r.fmap(f)))
+    }
+}
+
+impl RegEx<UnicodeCharClass> {
+    fn collect_split_points(&self, res: &mut BTreeSet<u32>) {
+        res.insert(0);
+        res.insert(0x10FFFF + 1);
+        self.for_each(&mut |cls| cls.iter()
+            .flat_map(UnicodeCharRange::end_points)
+            .for_each(|x| { res.insert(x); }));
+    }
+
+    pub fn classify_chars_with(self, split_points: &Vec<u32>) -> RegEx<Vec<u32>> {
+        self.fmap(&|cls| {
+            let mut res = BTreeSet::new();
+            for UnicodeCharRange { begin, end } in cls {
+                let l = split_points.binary_search(&begin).unwrap();
+                let r = split_points.binary_search(&end).unwrap();
+                for k in l..r {
+                    res.insert(k as u32);
+                }
+            }
+            res.into_iter().collect()
+        })
+    }
+
+    pub fn classify_chars(self) -> (Vec<u32>, RegEx<Vec<u32>>) {
+        let mut split_points = BTreeSet::new();
+        self.collect_split_points(&mut split_points);
+        let split_points = split_points.into_iter().collect::<Vec<_>>();
+        let regex = self.classify_chars_with(&split_points);
+        (split_points, regex)
+    }
+}
+
+impl<A: Display> Pretty for Vec<A> {
+    type Context = ();
+    fn pretty_fmt(&self, f: &mut Formatter<'_>, _: ()) -> std::fmt::Result {
+        write!(f, "{{")?;
+        let mut xs = self.iter();
+        if let Some(x0) = xs.next() {
+            write!(f, "{}", x0)?;
+            for x in xs {
+                write!(f, ", {}", x)?;
+            }
+        }
+        write!(f, "}}")
+    }
+}
+
+impl<A: Pretty<Context=()>> Pretty for RegEx<A> {
     type Context = usize;
     fn pretty_fmt(&self, f: &mut Formatter<'_>, n: usize) -> std::fmt::Result {
         self.0.pretty_fmt(f, n)
     }
 }
 
-impl<A: Display> Display for RegEx<A> {
+impl<A: Pretty<Context=()>> Display for RegEx<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.pretty_fmt(f, 0)
     }
@@ -237,5 +298,20 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_classify_chars() {
+        let expr: Expr = parse_quote!('0'..'9' | 'a'..'f' | 'A'..'F');
+        let expr: RegEx<_> = expr.try_into().unwrap();
+        let (chars, expr) = expr.classify_chars();
+        assert_eq!(chars, vec![
+            0,
+            '0' as u32, '9' as u32 + 1,
+            'A' as u32, 'F' as u32 + 1,
+            'a' as u32, 'f' as u32 + 1,
+            0x10FFFF + 1
+        ]);
+        assert_eq!(format!("{}", expr), "{1} | {5} | {3}");
     }
 }

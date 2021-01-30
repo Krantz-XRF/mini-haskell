@@ -27,6 +27,36 @@ pub enum RegOp<A, R> {
     Optional(Box<R>),
 }
 
+pub trait ForEach {
+    type Item;
+    fn for_each(&self, f: &mut impl FnMut(&Self::Item));
+}
+
+impl<A, R: ForEach<Item=A>> ForEach for RegOp<A, R> {
+    type Item = A;
+    fn for_each(&self, f: &mut impl FnMut(&A)) {
+        match self {
+            RegOp::Atom(a) => f(a),
+            RegOp::Alt(rs) => for x in rs { x.for_each(f) }
+            RegOp::Concat(rs) => for x in rs { x.for_each(f) }
+            RegOp::Some(r) => r.for_each(f),
+            RegOp::Optional(r) => r.for_each(f),
+        }
+    }
+}
+
+impl<A, R> RegOp<A, R> {
+    pub fn bimap<B, S>(self, mut f: impl FnMut(A) -> B, mut g: impl FnMut(R) -> S) -> RegOp<B, S> {
+        match self {
+            RegOp::Atom(a) => RegOp::Atom(f(a)),
+            RegOp::Alt(rs) => RegOp::Alt(rs.into_iter().map(g).collect()),
+            RegOp::Concat(rs) => RegOp::Concat(rs.into_iter().map(g).collect()),
+            RegOp::Some(r) => RegOp::Some(Box::new(g(*r))),
+            RegOp::Optional(r) => RegOp::Optional(Box::new(g(*r))),
+        }
+    }
+}
+
 pub trait Pretty {
     type Context;
     fn pretty_fmt(&self, f: &mut Formatter<'_>, context: Self::Context) -> std::fmt::Result;
@@ -69,11 +99,11 @@ fn postfix(f: &mut Formatter<'_>, x: impl Pretty<Context=usize>,
     write!(f, "{}", op)
 }
 
-impl<A: Display, R: Pretty<Context=usize>> Pretty for RegOp<A, R> {
+impl<A: Pretty<Context=()>, R: Pretty<Context=usize>> Pretty for RegOp<A, R> {
     type Context = usize;
     fn pretty_fmt(&self, f: &mut Formatter<'_>, n: usize) -> std::fmt::Result {
         match self {
-            RegOp::Atom(a) => write!(f, "{}", a),
+            RegOp::Atom(a) => a.pretty_fmt(f, ()),
             RegOp::Alt(rs) => sep_by(f, rs.iter(), (0, " | "), n),
             RegOp::Concat(rs) => sep_by(f, rs.iter(), (1, " "), n),
             RegOp::Some(r) => postfix(f, r, (2, "+"), n),
@@ -82,7 +112,7 @@ impl<A: Display, R: Pretty<Context=usize>> Pretty for RegOp<A, R> {
     }
 }
 
-impl<A: Display, R: Pretty<Context=usize>> Display for RegOp<A, R> {
+impl<A: Pretty<Context=()>, R: Pretty<Context=usize>> Display for RegOp<A, R> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.pretty_fmt(f, 0)
     }
