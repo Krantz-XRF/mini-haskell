@@ -126,19 +126,21 @@ impl Builder {
         })
     }
 
-    pub fn debug_print_nfa(&self, n: NFA) -> NFA {
-        println!(r#"digraph {{"#);
-        println!(r#"  rankdir="LR";"#);
+    pub fn debug_format_nfa(&self, n: &NFA) -> String {
+        let mut buffer = String::new();
+        use std::fmt::Write;
+        writeln!(buffer, r#"digraph {{"#);
+        writeln!(buffer, r#"  rankdir="LR";"#);
         for e in &self.transitions {
             let &Edge { departure: s, destination: t, input: a } = e;
             let a = a.map_or("ε".to_string(), |c| c.to_string());
-            println!(r#"  {} -> {} [label="{}"];"#, s, t, a);
+            writeln!(buffer, r#"  {} -> {} [label="{}"];"#, s, t, a);
         }
-        println!(r#"  start [shape="plaintext"];"#);
-        println!(r#"  start -> {};"#, n.start.0);
-        println!(r#"  {} [shape="doublecircle"];"#, n.accepted.0);
-        println!(r#"}}"#);
-        n
+        writeln!(buffer, r#"  start [shape="plaintext"];"#);
+        writeln!(buffer, r#"  start -> {};"#, n.start.0);
+        writeln!(buffer, r#"  {} [shape="doublecircle"];"#, n.accepted.0);
+        writeln!(buffer, r#"}}"#);
+        buffer
     }
 }
 
@@ -146,6 +148,7 @@ impl Builder {
 mod tests {
     use std::convert::TryInto;
     use syn::parse_quote;
+    use indoc::indoc;
 
     use super::*;
     use crate::syntax::Expr;
@@ -159,6 +162,41 @@ mod tests {
         let (cls, r) = r.classify_chars();
         let m = builder.build(r);
         assert_eq!(cls, vec![0, 48, 58, 65, 71, 95, 96, 97, 103, 1114112]);
-        builder.debug_print_nfa(m);
+        assert_eq!(
+            builder.debug_format_nfa(&m),
+            indoc!(r#"
+                digraph {
+                  rankdir="LR";
+                  0 -> 1 [label="7"];
+                  1 -> 7 [label="ε"];
+                  2 -> 3 [label="3"];
+                  3 -> 7 [label="ε"];
+                  4 -> 5 [label="5"];
+                  5 -> 7 [label="ε"];
+                  6 -> 0 [label="ε"];
+                  6 -> 2 [label="ε"];
+                  6 -> 4 [label="ε"];
+                  7 -> 16 [label="ε"];
+                  8 -> 9 [label="1"];
+                  9 -> 17 [label="ε"];
+                  10 -> 11 [label="7"];
+                  11 -> 17 [label="ε"];
+                  12 -> 13 [label="3"];
+                  13 -> 17 [label="ε"];
+                  14 -> 15 [label="5"];
+                  15 -> 17 [label="ε"];
+                  16 -> 8 [label="ε"];
+                  16 -> 10 [label="ε"];
+                  16 -> 12 [label="ε"];
+                  16 -> 14 [label="ε"];
+                  17 -> 16 [label="ε"];
+                  17 -> 19 [label="ε"];
+                  18 -> 6 [label="ε"];
+                  start [shape="plaintext"];
+                  start -> 18;
+                  19 [shape="doublecircle"];
+                }
+            "#)
+        );
     }
 }
