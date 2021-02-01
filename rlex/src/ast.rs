@@ -65,7 +65,7 @@ impl RegEx<UnicodeCharClass> {
             .for_each(|x| { res.insert(x); }));
     }
 
-    pub fn classify_chars_with(self, split_points: &Vec<u32>) -> RegEx<Vec<u32>> {
+    pub fn classify_chars_with(self, split_points: &[u32]) -> RegEx<Vec<u32>> {
         self.fmap(&|cls| {
             let mut res = BTreeSet::new();
             for UnicodeCharRange { begin, end } in cls {
