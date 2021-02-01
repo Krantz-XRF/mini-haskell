@@ -49,6 +49,11 @@ impl<A> RegEx<A> {
     pub fn fmap<B>(self, f: &impl Fn(A) -> B) -> RegEx<B> {
         RegEx(self.0.bimap(f, |r| r.fmap(f)))
     }
+
+    pub fn fold<B>(self, f: &mut impl FnMut(RegOp<A, B>) -> B) -> B {
+        let res = self.0.bimap(std::convert::identity, |r| r.fold(f));
+        f(res)
+    }
 }
 
 impl RegEx<UnicodeCharClass> {

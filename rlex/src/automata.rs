@@ -16,21 +16,4 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Procedural macros for defining lexers.
-
-mod ast;
-mod syntax;
-mod unicode_tables;
-mod automata;
-
-/// `rlex! { ... }` will generate a DFA-based lexer.
-#[proc_macro]
-pub fn rlex(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = proc_macro2::TokenStream::from(tokens);
-    let output = rlex_impl(input);
-    proc_macro::TokenStream::from(output)
-}
-
-fn rlex_impl(_input: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
-    todo!()
-}
+pub mod builder;
