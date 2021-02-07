@@ -22,6 +22,7 @@ mod ast;
 mod syntax;
 mod unicode_tables;
 mod automata;
+mod partition_refinement;
 
 /// `rlex! { ... }` will generate a DFA-based lexer.
 #[proc_macro]

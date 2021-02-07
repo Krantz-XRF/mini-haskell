@@ -16,19 +16,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+mod determine;
+
 use std::collections::BTreeSet;
 use crate::ast::{RegEx, RegOp};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 struct Edge {
-    departure: u32,
-    destination: u32,
-    input: Option<u32>,
+    departure: NFAState,
+    destination: NFAState,
+    input: NFAInput,
 }
 
 impl Edge {
-    pub fn new(departure: FAState, destination: FAState, input: FAInput) -> Self {
-        Edge { departure: departure.0, destination: destination.0, input: input.0 }
+    pub fn new(departure: NFAState, destination: NFAState, input: NFAInput) -> Self {
+        Edge { departure, destination, input }
     }
 }
 
@@ -37,20 +39,20 @@ pub struct Builder {
     transitions: BTreeSet<Edge>,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct FAState(u32);
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct NFAState(u32);
 
-#[derive(Debug, Copy, Clone)]
-pub struct FAInput(Option<u32>);
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct NFAInput(Option<u32>);
 
-impl FAInput {
-    pub const EPSILON: FAInput = FAInput(None);
-    pub const fn new(x: u32) -> Self { FAInput(Some(x)) }
+impl NFAInput {
+    pub const EPSILON: NFAInput = NFAInput(None);
+    pub const fn new(x: u32) -> Self { NFAInput(Some(x)) }
 }
 
 pub struct NFA {
-    start: FAState,
-    accepted: FAState,
+    start: NFAState,
+    accepted: NFAState,
 }
 
 impl Builder {
@@ -58,21 +60,21 @@ impl Builder {
         Builder { next_available_state: 0, transitions: BTreeSet::new() }
     }
 
-    fn state(&mut self) -> FAState {
-        let res = FAState(self.next_available_state);
+    fn state(&mut self) -> NFAState {
+        let res = NFAState(self.next_available_state);
         self.next_available_state += 1;
         res
     }
 
-    fn add_arc(&mut self, s: FAState, t: FAState, a: FAInput) -> bool {
+    fn add_arc(&mut self, s: NFAState, t: NFAState, a: NFAInput) -> bool {
         self.transitions.insert(Edge::new(s, t, a))
     }
 
-    fn new_arc(&mut self, s: FAState, t: FAState, a: FAInput) {
+    fn new_arc(&mut self, s: NFAState, t: NFAState, a: NFAInput) {
         assert!(self.add_arc(s, t, a), "transition {:?}({:?} -> {:?}) already exists.", a, s, t)
     }
 
-    fn new_nfa(&mut self, f: impl FnOnce(&mut Builder, FAState, FAState)) -> NFA {
+    fn new_nfa(&mut self, f: impl FnOnce(&mut Builder, NFAState, NFAState)) -> NFA {
         let s = self.state();
         let t = self.state();
         f(self, s, t);
@@ -81,14 +83,14 @@ impl Builder {
 
     pub fn atom(&mut self, xs: &[u32]) -> NFA {
         self.new_nfa(|this, s, t| for x in xs {
-            this.new_arc(s, t, FAInput::new(*x))
+            this.new_arc(s, t, NFAInput::new(*x))
         })
     }
 
     pub fn alt(&mut self, ms: impl Iterator<Item=NFA>) -> NFA {
         self.new_nfa(|this, s, t| for m in ms {
-            this.new_arc(s, m.start, FAInput::EPSILON);
-            this.new_arc(m.accepted, t, FAInput::EPSILON);
+            this.new_arc(s, m.start, NFAInput::EPSILON);
+            this.new_arc(m.accepted, t, NFAInput::EPSILON);
         })
     }
 
@@ -96,23 +98,23 @@ impl Builder {
         self.new_nfa(|this, s, t| {
             let mut last = s;
             for m in ms {
-                this.new_arc(last, m.start, FAInput::EPSILON);
+                this.new_arc(last, m.start, NFAInput::EPSILON);
                 last = m.accepted;
             }
-            this.new_arc(last, t, FAInput::EPSILON);
+            this.new_arc(last, t, NFAInput::EPSILON);
         })
     }
 
     pub fn some(&mut self, m: NFA) -> NFA {
-        self.add_arc(m.accepted, m.start, FAInput::EPSILON);
+        self.add_arc(m.accepted, m.start, NFAInput::EPSILON);
         m
     }
 
     pub fn optional(&mut self, m: NFA) -> NFA {
         self.new_nfa(|this, s, t| {
-            this.add_arc(s, t, FAInput::EPSILON);
-            this.add_arc(s, m.start, FAInput::EPSILON);
-            this.add_arc(m.accepted, t, FAInput::EPSILON);
+            this.add_arc(s, t, NFAInput::EPSILON);
+            this.add_arc(s, m.start, NFAInput::EPSILON);
+            this.add_arc(m.accepted, t, NFAInput::EPSILON);
         })
     }
 
@@ -126,21 +128,21 @@ impl Builder {
         })
     }
 
-    pub fn debug_format_nfa(&self, n: &NFA) -> String {
+    pub fn debug_format_nfa(&self, n: &NFA) -> Result<String, std::fmt::Error> {
         let mut buffer = String::new();
         use std::fmt::Write;
-        writeln!(buffer, r#"digraph {{"#);
-        writeln!(buffer, r#"  rankdir="LR";"#);
+        writeln!(buffer, r#"digraph {{"#)?;
+        writeln!(buffer, r#"  rankdir="LR";"#)?;
         for e in &self.transitions {
             let &Edge { departure: s, destination: t, input: a } = e;
-            let a = a.map_or("ε".to_string(), |c| c.to_string());
-            writeln!(buffer, r#"  {} -> {} [label="{}"];"#, s, t, a);
+            let a = a.0.map_or("ε".to_string(), |c| c.to_string());
+            writeln!(buffer, r#"  {} -> {} [label="{}"];"#, s.0, t.0, a)?;
         }
-        writeln!(buffer, r#"  start [shape="plaintext"];"#);
-        writeln!(buffer, r#"  start -> {};"#, n.start.0);
-        writeln!(buffer, r#"  {} [shape="doublecircle"];"#, n.accepted.0);
-        writeln!(buffer, r#"}}"#);
-        buffer
+        writeln!(buffer, r#"  start [shape="plaintext"];"#)?;
+        writeln!(buffer, r#"  start -> {};"#, n.start.0)?;
+        writeln!(buffer, r#"  {} [shape="doublecircle"];"#, n.accepted.0)?;
+        writeln!(buffer, r#"}}"#)?;
+        Ok(buffer)
     }
 }
 
@@ -163,7 +165,7 @@ mod tests {
         let m = builder.build(r);
         assert_eq!(cls, vec![0, 48, 58, 65, 71, 95, 96, 97, 103, 1114112]);
         assert_eq!(
-            builder.debug_format_nfa(&m),
+            builder.debug_format_nfa(&m).unwrap(),
             indoc!(r#"
                 digraph {
                   rankdir="LR";
