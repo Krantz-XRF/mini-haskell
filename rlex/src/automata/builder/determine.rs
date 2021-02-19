@@ -24,7 +24,7 @@ use std::cmp::Reverse;
 use derivative::Derivative;
 
 use super::*;
-use crate::partition_refinement::{Partitions, Part, SetIdx, Element};
+use crate::partition_refinement::{Partitions, Part, SetIdx};
 
 type NFAStateSet = BTreeSet<NFAState>;
 
@@ -35,15 +35,10 @@ pub struct DFA {
     accepted_states: BTreeSet<DFAState>,
 }
 
-fn pop_set(q: &mut VecDeque<Part>, p: &Partitions) -> Option<SetIdx> {
+fn pop_set(q: &mut VecDeque<Part>, p: &Partitions<DFAState>) -> Option<SetIdx> {
     let s = q.front_mut()?.pop_set_according_to(p);
     if q.front().unwrap().is_empty() { q.pop_front(); }
     Some(s)
-}
-
-impl DFAState {
-    const MIN: DFAState = DFAState(u32::MIN);
-    const MAX: DFAState = DFAState(u32::MAX);
 }
 
 #[derive(Copy, Clone)]
@@ -128,18 +123,18 @@ impl DFA {
             }
         }
         resulting.simplify();
-        let q0 = resulting.parent_set_of(Element(0));
+        let q0 = resulting.parent_set_of(DFAState(0));
         resulting.promote_to_head(q0);
         DFA {
             state_count: resulting.set_count() as u32,
             input_set: self.input_set,
             transitions: self.transitions.iter()
                 .map(|((s, a), t)|
-                    ((DFAState(resulting.parent_set_of(Element(s.0)).unwrap()), *a),
-                     DFAState(resulting.parent_set_of(Element(t.0)).unwrap())))
+                    ((DFAState(resulting.parent_set_of(DFAState(s.0)).unwrap()), *a),
+                     DFAState(resulting.parent_set_of(DFAState(t.0)).unwrap())))
                 .collect(),
             accepted_states: self.accepted_states.iter()
-                .map(|s| DFAState(resulting.parent_set_of(Element(s.0)).unwrap()))
+                .map(|s| DFAState(resulting.parent_set_of(DFAState(s.0)).unwrap()))
                 .collect(),
         }
     }
@@ -171,6 +166,19 @@ struct Transition {
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 struct DFAState(u32);
+
+impl From<u32> for DFAState {
+    fn from(n: u32) -> Self { DFAState(n) }
+}
+
+impl From<DFAState> for u32 {
+    fn from(s: DFAState) -> Self { s.0 }
+}
+
+impl DFAState {
+    const MIN: DFAState = DFAState(u32::MIN);
+    const MAX: DFAState = DFAState(u32::MAX);
+}
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 struct DFAInput(u32);
