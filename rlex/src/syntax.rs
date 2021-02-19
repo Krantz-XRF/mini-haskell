@@ -22,6 +22,8 @@ use syn::{
     Ident, LitChar, LitStr, Visibility,
     punctuated::Punctuated, parse::{Parse, Result, ParseBuffer},
 };
+use quote::{quote, ToTokens, TokenStreamExt};
+use proc_macro2::TokenStream;
 
 pub struct Rule {
     pub vis: Visibility,
@@ -38,6 +40,13 @@ impl Parse for Rule {
             _equal_sign: input.parse()?,
             body: input.parse()?,
         })
+    }
+}
+
+impl ToTokens for Rule {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Rule { vis, name, .. } = self;
+        tokens.append_all(quote! { #vis #name })
     }
 }
 
@@ -216,6 +225,12 @@ impl Parse for Group {
     }
 }
 
+impl ToTokens for Group {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.body.iter().for_each(|r| r.to_tokens(tokens))
+    }
+}
+
 pub enum RuleBlock {
     Group(Group),
     Single(Rule, Token![;]),
@@ -228,6 +243,15 @@ impl Parse for RuleBlock {
             input.parse().map(RuleBlock::Group)
         } else {
             Ok(RuleBlock::Single(input.parse()?, input.parse()?))
+        }
+    }
+}
+
+impl ToTokens for RuleBlock {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            RuleBlock::Group(g) => g.to_tokens(tokens),
+            RuleBlock::Single(r, _) => r.to_tokens(tokens),
         }
     }
 }
@@ -253,10 +277,16 @@ impl Parse for WithCondition {
     }
 }
 
+impl ToTokens for WithCondition {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.body.to_tokens(tokens)
+    }
+}
+
 pub struct LexemeDef {
-    _enum_token: Token![enum],
+    pub _enum_token: Token![enum],
     pub name: Ident,
-    _body_brace: token::Brace,
+    pub _body_brace: token::Brace,
     pub body: Vec<WithCondition>,
 }
 
@@ -276,6 +306,13 @@ impl Parse for LexemeDef {
                 body
             },
         })
+    }
+}
+
+impl ToTokens for LexemeDef {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let LexemeDef { _enum_token, name, body, .. } = self;
+        tokens.append_all(quote! { #_enum_token #name { #(#body),* } })
     }
 }
 

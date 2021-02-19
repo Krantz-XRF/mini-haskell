@@ -24,14 +24,14 @@ mod unicode_tables;
 mod automata;
 mod partition_refinement;
 
+use syn::parse_macro_input;
+use quote::ToTokens;
+use syntax::LexemeDef;
+
 /// `rlex! { ... }` will generate a DFA-based lexer.
 #[proc_macro]
 pub fn rlex(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = proc_macro2::TokenStream::from(tokens);
-    let output = rlex_impl(input);
-    proc_macro::TokenStream::from(output)
-}
-
-fn rlex_impl(_input: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
-    todo!()
+    let lexeme_def = parse_macro_input!(tokens as LexemeDef);
+    let expanded = lexeme_def.into_token_stream();
+    expanded.into()
 }
