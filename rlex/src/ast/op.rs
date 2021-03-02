@@ -46,13 +46,14 @@ impl<A, R: ForEach<Item=A>> ForEach for RegOp<A, R> {
 }
 
 impl<A, R> RegOp<A, R> {
-    pub fn bimap<B, S>(self, mut f: impl FnMut(A) -> B, mut g: impl FnMut(R) -> S) -> RegOp<B, S> {
+    pub fn bimap<'a, B: 'a, S: 'a, F, G>(&'a self, mut f: F, mut g: G) -> RegOp<B, S>
+        where F: FnMut(&'a A) -> B, G: FnMut(&'a R) -> S {
         match self {
             RegOp::Atom(a) => RegOp::Atom(f(a)),
-            RegOp::Alt(rs) => RegOp::Alt(rs.into_iter().map(g).collect()),
-            RegOp::Concat(rs) => RegOp::Concat(rs.into_iter().map(g).collect()),
-            RegOp::Some(r) => RegOp::Some(Box::new(g(*r))),
-            RegOp::Optional(r) => RegOp::Optional(Box::new(g(*r))),
+            RegOp::Alt(rs) => RegOp::Alt(rs.iter().map(g).collect()),
+            RegOp::Concat(rs) => RegOp::Concat(rs.iter().map(g).collect()),
+            RegOp::Some(r) => RegOp::Some(Box::new(g(r))),
+            RegOp::Optional(r) => RegOp::Optional(Box::new(g(r))),
         }
     }
 }

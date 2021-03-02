@@ -46,12 +46,12 @@ impl<A> ForEach for RegEx<A> {
 }
 
 impl<A> RegEx<A> {
-    pub fn fmap<B>(self, f: &impl Fn(A) -> B) -> RegEx<B> {
+    pub fn fmap<B>(&self, f: &impl Fn(&A) -> B) -> RegEx<B> {
         RegEx(self.0.bimap(f, |r| r.fmap(f)))
     }
 
-    pub fn fold<B>(self, f: &mut impl FnMut(RegOp<A, B>) -> B) -> B {
-        let res = self.0.bimap(std::convert::identity, |r| r.fold(f));
+    pub fn fold<B>(&self, f: &mut impl FnMut(RegOp<&A, B>) -> B) -> B {
+        let res = self.0.bimap(|x| x, |r| r.fold(f));
         f(res)
     }
 }
@@ -68,7 +68,7 @@ impl RegEx<UnicodeCharClass> {
     pub fn classify_chars_with(self, split_points: &[u32]) -> RegEx<Vec<u32>> {
         self.fmap(&|cls| {
             let mut res = BTreeSet::new();
-            for UnicodeCharRange { begin, end } in cls {
+            for &UnicodeCharRange { begin, end } in cls.iter() {
                 let l = split_points.binary_search(&begin).unwrap();
                 let r = split_points.binary_search(&end).unwrap();
                 for k in l..r {
