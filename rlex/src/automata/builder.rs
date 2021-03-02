@@ -34,11 +34,6 @@ impl Edge {
     }
 }
 
-pub struct Builder {
-    next_available_state: u32,
-    transitions: BTreeSet<Edge>,
-}
-
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct NFAState(u32);
 
@@ -53,6 +48,11 @@ impl NFAInput {
 pub struct NFA {
     start: NFAState,
     accepted: NFAState,
+}
+
+pub struct Builder {
+    next_available_state: u32,
+    transitions: BTreeSet<Edge>,
 }
 
 impl Builder {

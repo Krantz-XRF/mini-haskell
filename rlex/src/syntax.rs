@@ -25,6 +25,11 @@ use syn::{
 use quote::{quote, ToTokens, TokenStreamExt};
 use proc_macro2::TokenStream;
 
+/// for IntelliJ Rust (intellisense):
+/// macro 'Token!' is `syn::Token`, but incorrectly resolves to `syn::token::Token`
+#[allow(unused_imports)]
+use syn::token::Token;
+
 pub struct Rule {
     pub vis: Visibility,
     pub name: Ident,

@@ -32,6 +32,6 @@ use syntax::LexemeDef;
 #[proc_macro]
 pub fn rlex(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let lexeme_def = parse_macro_input!(tokens as LexemeDef);
-    let expanded = lexeme_def.into_token_stream();
+    let expanded = lexeme_def.to_token_stream();
     expanded.into()
 }
