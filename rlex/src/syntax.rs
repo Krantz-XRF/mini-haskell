@@ -24,6 +24,7 @@ use syn::{
 };
 use quote::{quote, ToTokens, TokenStreamExt};
 use proc_macro2::TokenStream;
+use either::Either;
 
 /// for IntelliJ Rust (intellisense):
 /// macro 'Token!' is `syn::Token`, but incorrectly resolves to `syn::token::Token`
@@ -174,6 +175,7 @@ impl Parse for CharRange {
     }
 }
 
+#[derive(Clone)]
 pub enum ConditionTrans {
     Simple(Ident),
     Trans {
@@ -239,6 +241,26 @@ impl ToTokens for Group {
 pub enum RuleBlock {
     Group(Group),
     Single(Rule, Token![;]),
+}
+
+impl RuleBlock {
+    pub fn iter(&self) -> impl Iterator<Item=&Rule> {
+        match self {
+            RuleBlock::Single(r, _) => Either::Left(std::iter::once(r)),
+            RuleBlock::Group(rs) => Either::Right(rs.body.iter()),
+        }
+    }
+}
+
+impl IntoIterator for RuleBlock {
+    type Item = Rule;
+    type IntoIter = Either<std::iter::Once<Rule>, syn::punctuated::IntoIter<Rule>>;
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            RuleBlock::Single(r, _) => Either::Left(std::iter::once(r)),
+            RuleBlock::Group(rs) => Either::Right(rs.body.into_iter()),
+        }
+    }
 }
 
 impl Parse for RuleBlock {

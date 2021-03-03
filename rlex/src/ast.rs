@@ -24,14 +24,21 @@ pub mod op;
 pub use char_class::UnicodeCharClass;
 pub use op::RegOp;
 
+use std::rc::Rc;
+use std::collections::{BTreeSet, BTreeMap, HashMap};
 use std::convert::{TryFrom, TryInto};
 use std::fmt::{Display, Formatter};
-use std::collections::BTreeSet;
-use syn::{LitChar, LitStr};
+use std::hash::{Hash, Hasher};
+use std::marker::PhantomData;
+
+use syn::{LitChar, LitStr, Ident};
+use derivative::Derivative;
+use either::Either;
 
 use crate::syntax::*;
 use crate::ast::char_class::UnicodeCharRange;
 use crate::ast::op::{Pretty, ForEach};
+use crate::syntax::ConditionTrans::{Simple, Trans};
 
 type Result<T> = std::result::Result<T, syn::Error>;
 
@@ -138,34 +145,34 @@ fn collect_vec<T>(xs: T) -> Result<Vec<RegEx<UnicodeCharClass>>>
         })
 }
 
-impl TryFrom<Expr> for RegEx<UnicodeCharClass> {
+impl TryFrom<&Expr> for RegEx<UnicodeCharClass> {
     type Error = syn::Error;
-    fn try_from(e: Expr) -> Result<Self> {
+    fn try_from(e: &Expr) -> Result<Self> {
         if e.variants.is_empty() {
             Ok(RegEx(RegOp::Atom(UnicodeCharClass::empty())))
         } else if e.variants.len() == 1 {
-            unwrap_first(e.variants).try_into()
+            unwrap_first(&e.variants).try_into()
         } else {
-            collect_vec(e.variants).map(|r| RegEx(RegOp::Alt(r)))
+            collect_vec(&e.variants).map(|r| RegEx(RegOp::Alt(r)))
         }
     }
 }
 
-impl TryFrom<Concat> for RegEx<UnicodeCharClass> {
+impl TryFrom<&Concat> for RegEx<UnicodeCharClass> {
     type Error = syn::Error;
-    fn try_from(c: Concat) -> Result<Self> {
+    fn try_from(c: &Concat) -> Result<Self> {
         assert!(!c.items.is_empty(), "guaranteed by Punctuated::parse_separated_nonempty");
         if c.items.len() == 1 {
-            unwrap_first(c.items).try_into()
+            unwrap_first(&c.items).try_into()
         } else {
-            collect_vec(c.items).map(|r| RegEx(RegOp::Concat(r)))
+            collect_vec(&c.items).map(|r| RegEx(RegOp::Concat(r)))
         }
     }
 }
 
-impl TryFrom<Repeat> for RegEx<UnicodeCharClass> {
+impl TryFrom<&Repeat> for RegEx<UnicodeCharClass> {
     type Error = syn::Error;
-    fn try_from(rep: Repeat) -> Result<Self> {
+    fn try_from(rep: &Repeat) -> Result<Self> {
         match rep {
             Repeat::Once(x) => x.try_into(),
             Repeat::Optional(x, _) => Ok(RegEx(RegOp::Optional(Box::new(x.try_into()?)))),
@@ -179,9 +186,9 @@ impl TryFrom<Repeat> for RegEx<UnicodeCharClass> {
     }
 }
 
-impl TryFrom<Atom> for RegEx<UnicodeCharClass> {
+impl TryFrom<&Atom> for RegEx<UnicodeCharClass> {
     type Error = syn::Error;
-    fn try_from(a: Atom) -> Result<Self> {
+    fn try_from(a: &Atom) -> Result<Self> {
         match a {
             Atom::Char(c) => Ok(RegEx(RegOp::Atom(c.into()))),
             Atom::String(s) => Ok(s.into()),
@@ -192,14 +199,14 @@ impl TryFrom<Atom> for RegEx<UnicodeCharClass> {
     }
 }
 
-impl From<LitChar> for UnicodeCharClass {
-    fn from(c: LitChar) -> Self {
+impl From<&LitChar> for UnicodeCharClass {
+    fn from(c: &LitChar) -> Self {
         UnicodeCharClass::from(c.value())
     }
 }
 
-impl From<LitStr> for RegEx<UnicodeCharClass> {
-    fn from(s: LitStr) -> Self {
+impl From<&LitStr> for RegEx<UnicodeCharClass> {
+    fn from(s: &LitStr) -> Self {
         let xs = s.value().chars()
             .map(UnicodeCharClass::from)
             .map(RegOp::Atom)
@@ -213,9 +220,9 @@ impl From<LitStr> for RegEx<UnicodeCharClass> {
     }
 }
 
-impl TryFrom<CharClass> for UnicodeCharClass {
+impl TryFrom<&CharClass> for UnicodeCharClass {
     type Error = syn::Error;
-    fn try_from(cls: CharClass) -> Result<Self> {
+    fn try_from(cls: &CharClass) -> Result<Self> {
         fn fst<T: Copy, U>(x: &(T, U)) -> T { x.0 }
         fn make_char_class(by_names: &[(&'static str, &'static [(u32, u32)])], name: &str)
                            -> UnicodeCharClass {
@@ -251,11 +258,125 @@ impl TryFrom<CharClass> for UnicodeCharClass {
     }
 }
 
-impl From<CharRange> for UnicodeCharClass {
-    fn from(r: CharRange) -> Self {
+impl From<&CharRange> for UnicodeCharClass {
+    fn from(r: &CharRange) -> Self {
         UnicodeCharClass::from(
             UnicodeCharRange::new(
                 r.begin.value(), r.end.value()))
+    }
+}
+
+pub struct SingleLexeme {
+    lexeme_type: Ident,
+    target_start_condition: Option<Ident>,
+    lexeme_regex: Rc<RegEx<Vec<u32>>>,
+}
+
+#[derive(Clone)]
+struct SCIdent(Option<Ident>);
+
+impl SCIdent {
+    const DEFAULT: Self = SCIdent(None);
+}
+
+impl From<Ident> for SCIdent {
+    fn from(x: Ident) -> Self { SCIdent(Some(x)) }
+}
+
+impl PartialEq for SCIdent {
+    fn eq(&self, other: &Self) -> bool {
+        let self_str;
+        let self_ref = match &self.0 {
+            Some(x) => {
+                self_str = x.to_string();
+                &self_str
+            }
+            None => "start",
+        };
+        let other_str;
+        let other_ref = match &other.0 {
+            Some(x) => {
+                other_str = x.to_string();
+                &other_str
+            }
+            None => "start",
+        };
+        self_ref == other_ref
+    }
+}
+
+impl Eq for SCIdent {}
+
+impl Hash for SCIdent {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match &self.0 {
+            Some(id) => id.hash(state),
+            None => "start".hash(state),
+        }
+    }
+}
+
+pub struct RootDef {
+    name: Ident,
+    lexemes: HashMap<SCIdent, Vec<SingleLexeme>>,
+    split_points: Vec<u32>,
+}
+
+#[derive(Derivative)]
+#[derivative(PartialEq(bound = ""), Eq(bound = ""), Hash(bound = ""))]
+struct ByAddress<'a, T> {
+    ptr: *const T,
+    #[derivative = "ignore"]
+    _phantom: PhantomData<&'a T>,
+}
+
+impl<'a, T> From<&'a T> for ByAddress<'a, T> {
+    fn from(x: &'a T) -> Self {
+        ByAddress { ptr: x, _phantom: PhantomData }
+    }
+}
+
+impl TryFrom<LexemeDef> for RootDef {
+    type Error = syn::Error;
+    fn try_from(d: LexemeDef) -> Result<Self> {
+        let mut rules: Result<_> = Ok(Vec::new());
+        for wc in d.body {
+            let start_conditions: Rc<[(SCIdent, Option<Ident>)]>;
+            start_conditions = wc.start_condition.map_or_else(
+                || vec![(SCIdent::DEFAULT, None)],
+                |sc| sc.condition.into_iter().map(|t| match t {
+                    Simple(a) => (SCIdent::from(a), None),
+                    Trans { begin, end, .. } => (SCIdent::from(begin), Some(end))
+                }).collect(),
+            ).into();
+            for r in wc.body {
+                match (rules.as_mut(), RegEx::try_from(&r.body)) {
+                    (Ok(res), Ok(x)) =>
+                        res.push((start_conditions.clone(), r.name, x)),
+                    (Err(e1), Err(e2)) => e1.combine(e2),
+                    (Ok(_), Err(e)) => rules = Err(e),
+                    (Err(_), Ok(_)) => {}
+                }
+            }
+        }
+        let rules = rules?;
+        let mut split_points = BTreeSet::new();
+        for (_, _, reg) in &rules {
+            reg.collect_split_points(&mut split_points)
+        }
+        let split_points = split_points.into_iter().collect::<Vec<_>>();
+        let mut lexemes = HashMap::new();
+        for (sc, name, reg) in rules {
+            let reg = Rc::new(reg.classify_chars_with(&split_points));
+            for (s, t) in sc.iter() {
+                lexemes.entry(s.clone()).or_insert_with(Vec::new).push(SingleLexeme {
+                    lexeme_type: name.clone(),
+                    target_start_condition: t.clone(),
+                    lexeme_regex: reg.clone(),
+                })
+            }
+        }
+        Ok(RootDef { name: d.name, lexemes, split_points })
     }
 }
 
