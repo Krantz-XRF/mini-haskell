@@ -182,9 +182,9 @@ impl<E: From<u32> + Into<u32> + Copy> Partitions<E> {
             let mut pt = self[p].as_range();
             last = pt.end;
             if let Some(i) = pt.next() {
-                eprint!("{}", self.back_buffer[i].0);
+                eprint!("{}", self.back_buffer[i].into());
                 for i in pt {
-                    eprint!(" {}", self.back_buffer[i].0);
+                    eprint!(" {}", self.back_buffer[i].into());
                 }
             }
             eprint!("]");

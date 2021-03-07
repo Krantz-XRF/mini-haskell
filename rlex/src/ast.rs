@@ -25,7 +25,7 @@ pub use char_class::UnicodeCharClass;
 pub use op::RegOp;
 
 use std::rc::Rc;
-use std::collections::{BTreeSet, BTreeMap, HashMap};
+use std::collections::{BTreeSet, HashMap};
 use std::convert::{TryFrom, TryInto};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -33,14 +33,14 @@ use std::marker::PhantomData;
 
 use syn::{LitChar, LitStr, Ident};
 use derivative::Derivative;
-use either::Either;
 
 use crate::syntax::*;
 use crate::ast::char_class::UnicodeCharRange;
 use crate::ast::op::{Pretty, ForEach};
 use crate::syntax::ConditionTrans::{Simple, Trans};
+use crate::codegen::TaggedRegEx;
 
-type Result<T> = std::result::Result<T, syn::Error>;
+pub type Result<T> = std::result::Result<T, syn::Error>;
 
 /// `RegEx a = fix (RegOp a)`.
 pub struct RegEx<A>(RegOp<A, RegEx<A>>);
@@ -143,6 +143,11 @@ fn collect_vec<T>(xs: T) -> Result<Vec<RegEx<UnicodeCharClass>>>
                 Err(e1)
             }
         })
+}
+
+impl TryFrom<Expr> for RegEx<UnicodeCharClass> {
+    type Error = syn::Error;
+    fn try_from(e: Expr) -> Result<Self> { Self::try_from(&e) }
 }
 
 impl TryFrom<&Expr> for RegEx<UnicodeCharClass> {
@@ -266,17 +271,18 @@ impl From<&CharRange> for UnicodeCharClass {
     }
 }
 
-pub struct SingleLexeme {
+pub struct LexemeTag {
     lexeme_type: Ident,
     target_start_condition: Option<Ident>,
-    lexeme_regex: Rc<RegEx<Vec<u32>>>,
 }
 
+pub type SingleLexeme = TaggedRegEx<Vec<u32>, LexemeTag>;
+
 #[derive(Clone)]
-struct SCIdent(Option<Ident>);
+pub struct SCIdent(pub Option<Ident>);
 
 impl SCIdent {
-    const DEFAULT: Self = SCIdent(None);
+    pub const DEFAULT: Self = SCIdent(None);
 }
 
 impl From<Ident> for SCIdent {
@@ -319,21 +325,7 @@ impl Hash for SCIdent {
 pub struct RootDef {
     name: Ident,
     lexemes: HashMap<SCIdent, Vec<SingleLexeme>>,
-    split_points: Vec<u32>,
-}
-
-#[derive(Derivative)]
-#[derivative(PartialEq(bound = ""), Eq(bound = ""), Hash(bound = ""))]
-struct ByAddress<'a, T> {
-    ptr: *const T,
-    #[derivative = "ignore"]
-    _phantom: PhantomData<&'a T>,
-}
-
-impl<'a, T> From<&'a T> for ByAddress<'a, T> {
-    fn from(x: &'a T) -> Self {
-        ByAddress { ptr: x, _phantom: PhantomData }
-    }
+    split_points: Box<[u32]>,
 }
 
 impl TryFrom<LexemeDef> for RootDef {
@@ -341,14 +333,13 @@ impl TryFrom<LexemeDef> for RootDef {
     fn try_from(d: LexemeDef) -> Result<Self> {
         let mut rules: Result<_> = Ok(Vec::new());
         for wc in d.body {
-            let start_conditions: Rc<[(SCIdent, Option<Ident>)]>;
-            start_conditions = wc.start_condition.map_or_else(
-                || vec![(SCIdent::DEFAULT, None)],
+            let start_conditions = wc.start_condition.map_or_else(
+                || std::iter::once((SCIdent::DEFAULT, None)).collect::<Rc<_>>(),
                 |sc| sc.condition.into_iter().map(|t| match t {
                     Simple(a) => (SCIdent::from(a), None),
                     Trans { begin, end, .. } => (SCIdent::from(begin), Some(end))
-                }).collect(),
-            ).into();
+                }).collect::<Rc<_>>(),
+            );
             for r in wc.body {
                 match (rules.as_mut(), RegEx::try_from(&r.body)) {
                     (Ok(res), Ok(x)) =>
@@ -364,15 +355,17 @@ impl TryFrom<LexemeDef> for RootDef {
         for (_, _, reg) in &rules {
             reg.collect_split_points(&mut split_points)
         }
-        let split_points = split_points.into_iter().collect::<Vec<_>>();
+        let split_points = split_points.into_iter().collect::<Box<_>>();
         let mut lexemes = HashMap::new();
         for (sc, name, reg) in rules {
             let reg = Rc::new(reg.classify_chars_with(&split_points));
             for (s, t) in sc.iter() {
-                lexemes.entry(s.clone()).or_insert_with(Vec::new).push(SingleLexeme {
-                    lexeme_type: name.clone(),
-                    target_start_condition: t.clone(),
-                    lexeme_regex: reg.clone(),
+                lexemes.entry(s.clone()).or_insert_with(Vec::new).push(TaggedRegEx {
+                    regex: reg.clone(),
+                    tag: LexemeTag {
+                        lexeme_type: name.clone(),
+                        target_start_condition: t.clone(),
+                    },
                 })
             }
         }
@@ -411,7 +404,7 @@ mod tests {
             Ok("[B] [o] [n] [j] [o] [u] [r] [,]? ([l] [e])+? [m] [o] [n] [d] [e]"),
         ];
         for (expr, ans) in exprs.into_iter().zip(expected.iter()) {
-            let expr: Result<RegEx<UnicodeCharClass>> = expr.try_into();
+            let expr: Result<RegEx<UnicodeCharClass>> = (&expr).try_into();
             match expr {
                 Ok(expr) =>
                     assert_eq!(expr.to_string(), *ans.unwrap()),
@@ -429,7 +422,7 @@ mod tests {
     #[test]
     fn test_classify_chars() {
         let expr: Expr = parse_quote!('0'..'9' | 'a'..'f' | 'A'..'F');
-        let expr: RegEx<_> = expr.try_into().unwrap();
+        let expr: RegEx<_> = (&expr).try_into().unwrap();
         let (chars, expr) = expr.classify_chars();
         assert_eq!(chars, vec![
             0,

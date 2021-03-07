@@ -23,6 +23,7 @@ mod syntax;
 mod unicode_tables;
 mod automata;
 mod partition_refinement;
+mod codegen;
 
 use syn::parse_macro_input;
 use quote::ToTokens;

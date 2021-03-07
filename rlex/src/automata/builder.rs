@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-mod determine;
+pub mod determine;
 
 use std::collections::BTreeSet;
 use crate::ast::{RegEx, RegOp};
@@ -34,10 +34,10 @@ impl Edge {
     }
 }
 
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct NFAState(u32);
 
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct NFAInput(Option<u32>);
 
 impl NFAInput {
@@ -47,7 +47,7 @@ impl NFAInput {
 
 pub struct NFA {
     start: NFAState,
-    accepted: NFAState,
+    pub accepted: NFAState,
 }
 
 pub struct Builder {
@@ -87,14 +87,14 @@ impl Builder {
         })
     }
 
-    pub fn alt(&mut self, ms: impl Iterator<Item=NFA>) -> NFA {
+    pub fn alt(&mut self, ms: impl IntoIterator<Item=NFA>) -> NFA {
         self.new_nfa(|this, s, t| for m in ms {
             this.new_arc(s, m.start, NFAInput::EPSILON);
             this.new_arc(m.accepted, t, NFAInput::EPSILON);
         })
     }
 
-    pub fn concat(&mut self, ms: impl Iterator<Item=NFA>) -> NFA {
+    pub fn concat(&mut self, ms: impl IntoIterator<Item=NFA>) -> NFA {
         self.new_nfa(|this, s, t| {
             let mut last = s;
             for m in ms {
@@ -118,11 +118,11 @@ impl Builder {
         })
     }
 
-    pub fn build(&mut self, regex: RegEx<Vec<u32>>) -> NFA {
+    pub fn build(&mut self, regex: &RegEx<Vec<u32>>) -> NFA {
         regex.fold(&mut |op| match op {
             RegOp::Atom(a) => self.atom(&a),
-            RegOp::Alt(rs) => self.alt(rs.into_iter()),
-            RegOp::Concat(rs) => self.concat(rs.into_iter()),
+            RegOp::Alt(rs) => self.alt(rs),
+            RegOp::Concat(rs) => self.concat(rs),
             RegOp::Some(r) => self.some(*r),
             RegOp::Optional(r) => self.optional(*r),
         })
@@ -162,7 +162,7 @@ mod tests {
         let mut builder = Builder::new();
         let r: RegEx<UnicodeCharClass> = e.try_into().unwrap();
         let (cls, r) = r.classify_chars();
-        let m = builder.build(r);
+        let m = builder.build(&r);
         assert_eq!(cls, vec![0, 48, 58, 65, 71, 95, 96, 97, 103, 1114112]);
         assert_eq!(
             builder.debug_format_nfa(&m).unwrap(),

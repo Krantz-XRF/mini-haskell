@@ -17,7 +17,7 @@
  */
 
 use std::ops::Bound::*;
-use std::collections::{BTreeSet, BTreeMap, VecDeque, BinaryHeap};
+use std::collections::{BTreeSet, BTreeMap, VecDeque, BinaryHeap, HashMap};
 use std::rc::Rc;
 use std::cmp::Reverse;
 
@@ -28,12 +28,39 @@ use crate::partition_refinement::{Partitions, Part, SetIdx};
 
 type NFAStateSet = BTreeSet<NFAState>;
 
-pub struct DFA {
-    state_count: u32,
-    input_set: Box<[DFAInput]>,
-    transitions: BTreeMap<(DFAState, DFAInput), DFAState>,
-    accepted_states: BTreeSet<DFAState>,
+#[derive(Debug, Hash, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct DFAState(u32);
+
+impl From<u32> for DFAState {
+    fn from(n: u32) -> Self { DFAState(n) }
 }
+
+impl From<DFAState> for u32 {
+    fn from(s: DFAState) -> Self { s.0 }
+}
+
+impl DFAState {
+    const START: DFAState = DFAState(0);
+    const MIN: DFAState = DFAState(u32::MIN);
+    const MAX: DFAState = DFAState(u32::MAX);
+}
+
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct DFAInput(pub u32);
+
+impl DFAInput {
+    const MIN: DFAInput = DFAInput(u32::MIN);
+    const MAX: DFAInput = DFAInput(u32::MAX);
+}
+
+pub struct TaggedDFA<Tag> {
+    pub state_count: u32,
+    pub input_set: Box<[DFAInput]>,
+    pub transitions: BTreeMap<(DFAState, DFAInput), DFAState>,
+    pub accepted_states: HashMap<DFAState, Tag>,
+}
+
+pub type DFA = TaggedDFA<()>;
 
 fn pop_set(q: &mut VecDeque<Part>, p: &Partitions<DFAState>) -> Option<SetIdx> {
     let s = q.front_mut()?.pop_set_according_to(p);
@@ -99,14 +126,23 @@ impl<I> Iterator for GenericUnion<I>
 
 impl DFA {
     pub fn minimize(self) -> DFA {
+        let accs = self.accepted_states.keys().copied().collect::<Vec<_>>().into_iter();
+        self.minimize_with(std::iter::once(accs))
+    }
+}
+
+impl<Tag> TaggedDFA<Tag> {
+    pub fn minimize_with(self, accs: impl Iterator<Item=impl Iterator<Item=DFAState>>) -> TaggedDFA<Tag> {
         let mut reverse_trans = BTreeSet::new();
         for (&(s, a), &t) in &self.transitions {
             reverse_trans.insert((t, a, s));
         }
         let mut pending = VecDeque::new();
         let mut resulting = Partitions::new(self.state_count);
-        resulting.refine_with(self.accepted_states.iter().map(|s| s.0))
-            .for_each(|p| pending.push_back(resulting[p]));
+        for acc in accs {
+            resulting.refine_with(acc.map(|s| s.0))
+                .for_each(|p| pending.push_back(resulting[p]));
+        }
         while let Some(s) = pop_set(&mut pending, &resulting) {
             for c in self.input_set.iter().copied() {
                 // x = delta^-1(c, s)
@@ -125,7 +161,7 @@ impl DFA {
         resulting.simplify();
         let q0 = resulting.parent_set_of(DFAState(0));
         resulting.promote_to_head(q0);
-        DFA {
+        TaggedDFA {
             state_count: resulting.set_count() as u32,
             input_set: self.input_set,
             transitions: self.transitions.iter()
@@ -133,10 +169,41 @@ impl DFA {
                     ((DFAState(resulting.parent_set_of(DFAState(s.0)).unwrap()), *a),
                      DFAState(resulting.parent_set_of(DFAState(t.0)).unwrap())))
                 .collect(),
-            accepted_states: self.accepted_states.iter()
-                .map(|s| DFAState(resulting.parent_set_of(DFAState(s.0)).unwrap()))
+            accepted_states: self.accepted_states.into_iter()
+                .map(|s| (DFAState(resulting.parent_set_of(DFAState(s.0.0)).unwrap()), s.1))
                 .collect(),
         }
+    }
+
+    pub fn name_an_input_for(&self, a: DFAState) -> Vec<DFAInput> {
+        let mut to_visit = VecDeque::new();
+        to_visit.push_back(DFAState::START);
+        let mut mapping: Vec<Option<(DFAState, DFAInput, bool)>>;
+        mapping = vec![None; self.state_count as usize];
+        while mapping[a.0 as usize].is_none() {
+            assert!(!to_visit.is_empty(), "all states must be reachable.");
+            let b = to_visit.pop_front().unwrap();
+            // skip visited states.
+            if mapping[b.0 as usize].unwrap().2 { continue; }
+            // mark visited.
+            mapping[b.0 as usize].unwrap().2 = true;
+            // visit children.
+            for (&(_, c), &t) in self.transitions.range((b, DFAInput::MIN)..=(b, DFAInput::MAX)) {
+                if mapping[t.0 as usize].is_none() {
+                    to_visit.push_back(t);
+                    mapping[t.0 as usize] = Some((b, c, false));
+                }
+            }
+        }
+        let mut current = a;
+        let mut result = Vec::new();
+        while current != DFAState::START {
+            let (prev, input, _) = mapping[current.0 as usize].unwrap();
+            result.push(input);
+            current = prev;
+        }
+        result.reverse();
+        result
     }
 
     pub fn debug_format(&self) -> Result<String, std::fmt::Error> {
@@ -149,7 +216,7 @@ impl DFA {
         }
         writeln!(buffer, r#"  start [shape="plaintext"];"#)?;
         writeln!(buffer, r#"  start -> 0;"#)?;
-        for f in &self.accepted_states {
+        for f in self.accepted_states.keys() {
             writeln!(buffer, r#"  {} [shape="doublecircle"];"#, f.0)?;
         }
         writeln!(buffer, r#"}}"#)?;
@@ -163,25 +230,6 @@ struct Transition {
     input: NFAInput,
     destination: NFAState,
 }
-
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-struct DFAState(u32);
-
-impl From<u32> for DFAState {
-    fn from(n: u32) -> Self { DFAState(n) }
-}
-
-impl From<DFAState> for u32 {
-    fn from(s: DFAState) -> Self { s.0 }
-}
-
-impl DFAState {
-    const MIN: DFAState = DFAState(u32::MIN);
-    const MAX: DFAState = DFAState(u32::MAX);
-}
-
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-struct DFAInput(u32);
 
 #[derive(Default)]
 struct StateCollector {
@@ -236,7 +284,7 @@ impl Determiner {
         res
     }
 
-    fn determine(&mut self, m: NFA) -> DFA {
+    fn determine(&mut self, m: NFA) -> TaggedDFA<NFAStateSet> {
         let mut new_transitions = BTreeMap::new();
         let mut states = StateCollector::default();
         let start = Rc::new(self.epsilon_closure_single(m.start));
@@ -252,19 +300,20 @@ impl Determiner {
                 }
             }
         }
-        DFA {
+        TaggedDFA {
             state_count: states.states.len() as u32,
             transitions: new_transitions,
-            accepted_states: states.states.iter()
+            accepted_states: states.states.into_iter()
                 .filter(|s| s.0.contains(&m.accepted))
-                .map(|s| s.1).copied().collect(),
+                .map(|s| (s.1, Rc::try_unwrap(s.0).unwrap()))
+                .collect(),
             input_set: self.input_set.iter().copied().map(DFAInput).collect::<Vec<_>>().into_boxed_slice(),
         }
     }
 }
 
 impl Builder {
-    pub fn finish(self, m: NFA) -> DFA {
+    pub fn finish(self, m: NFA) -> TaggedDFA<NFAStateSet> {
         Determiner {
             input_set: {
                 let mut xs = self.transitions.iter()
@@ -298,7 +347,7 @@ mod tests {
         let mut builder = Builder::new();
         let r: RegEx<UnicodeCharClass> = e.try_into().unwrap();
         let (cls, r) = r.classify_chars();
-        let m = builder.build(r);
+        let m = builder.build(&r);
         let n = builder.finish(m);
         assert_eq!(cls, vec![0, 48, 58, 65, 71, 95, 96, 97, 103, 1114112]);
         assert_eq!(
